@@ -6,6 +6,7 @@ from logic import Game
 from cell import Cell
 import contextlib
 from rivals import Rival
+from netifaces import interfaces, ifaddresses, AF_INET
 
 
 class StartGameWindowNotOnline(QtWidgets.QDialog):
@@ -232,12 +233,12 @@ class OnlineOrNotWindow(QtWidgets.QDialog):
         self.setWindowTitle('Setting')
         self._sel_layout = QtWidgets.QVBoxLayout()
 
-        items = ['not online']
+        items = ['not online', 'create server']
 
         for i in items:
             self._sel_layout.addWidget(QtWidgets.QRadioButton(i))
 
-        self._online = QtWidgets.QRadioButton('online')
+        self._online = QtWidgets.QRadioButton('connect to server')
         self._online.toggled.connect(self._click_online)
         self._sel_layout.addWidget(self._online)
 
@@ -250,7 +251,7 @@ class OnlineOrNotWindow(QtWidgets.QDialog):
         self._inputs = QtWidgets.QHBoxLayout()
         inp = QtWidgets.QLineEdit()
         self._inputs.addWidget(inp)
-        self._inputs.itemAt(0).widget().setPlaceholderText('000.000.000.000')
+        self._inputs.itemAt(0).widget().setPlaceholderText('192.168.xxx.xxx')
         self._hide_inputs()
 
         layout = QtWidgets.QVBoxLayout()
@@ -284,8 +285,14 @@ class OnlineOrNotWindow(QtWidgets.QDialog):
 
     def set_online(self):
         def check(params):
+            ips = []
+            for ifaceName in interfaces():
+                addresses = [i['addr'] for i in ifaddresses(ifaceName).setdefault(AF_INET, [{'addr':'No IP addr'}] )]
+                for i in addresses:
+                    if i != 'No IP addr':
+                        ips.append(i)
             parts = params.split('.')
-            if len(parts) != 4:
+            if len(parts) != 4 or parts[0] != '192' or parts[1] != '168' or params not in ips:
                 QtWidgets.QMessageBox.critical(self, 'IP', 'Недопустимый ip!')
                 return
             for part in parts:
@@ -397,15 +404,25 @@ class Field(QtWidgets.QMainWindow):
         self.name_win["first"] = self.second_game_dialog.set_players()[0]
         self.name_win["second"] = self.second_game_dialog.set_players()[1]
     
-    def set_params_online(self):
+    def set_params_create_server(self):
         self.name_win = {}
         size = self.second_game_dialog.set_size()
         self.name_win["size"] = size
-        
+
         self.saving_for_online = {}
         self.saving_for_online["color"] = self.second_game_dialog.set_color()
         self.saving_for_online["ip"] = self.ip
         self.saving_for_online["size"] = size
+
+    def set_params_set_params_connect_to_server(self):
+        self.saving_for_online = {}
+        self.saving_for_online["ip"] = self.ip
+        self.saving_for_online["color"] = Cell.RED
+        self.saving_for_online["size"] = "15x15"
+        
+        self.name_win = {}        
+        self.name_win["size"] = "15x15"
+        
 
     def set_onl(self):
         setting = self.new_game_dialog.set_online()
@@ -414,12 +431,15 @@ class Field(QtWidgets.QMainWindow):
             self.second_game_dialog.setModal(True) 
             self.second_game_dialog.accepted.connect(self.set_params_not_online) 
             self.second_game_dialog.rejected.connect(self.second_game_dialog.close)
-        elif setting is not None:
+        elif setting == "create server":
             self.second_game_dialog = StartGameWindowOnline(self)
             self.second_game_dialog.setModal(True) 
-            self.second_game_dialog.accepted.connect(self.set_params_online) 
+            self.second_game_dialog.accepted.connect(self.set_params_create_server) 
             self.second_game_dialog.rejected.connect(self.second_game_dialog.close)
+            self.ip = ""
+        elif setting is not None:
             self.ip = setting
+            self.set_params_set_params_connect_to_server()
             
     def setting_game(self):
         self.new_game_dialog = OnlineOrNotWindow(self)
@@ -578,6 +598,18 @@ class Field(QtWidgets.QMainWindow):
                             previos_y),
                         QtCore.QPoint(0, previos_y))
 
+        def draw_diagonal_right(qp, previos_x, previos_y, current_x, current_y):
+            qp.drawLine(QtCore.QPoint(min(previos_x, current_x), min(previos_y, current_y)),
+                        QtCore.QPoint(0, 25))
+            qp.drawLine(QtCore.QPoint(max(previos_x, current_x), max(previos_y, current_y)),
+                        QtCore.QPoint(self.width * dist_x, self.height * dist_y + 25))
+        
+        def draw_diagonal_left(qp, previos_x, previos_y, current_x, current_y):
+            qp.drawLine(QtCore.QPoint(min(previos_x, current_x), max(previos_y, current_y)),
+                                        QtCore.QPoint(0, self.height * dist_y + 25))
+            qp.drawLine(QtCore.QPoint(max(previos_x, current_x), min(previos_y, current_y)),
+                                        QtCore.QPoint(self.width * dist_x, 25))
+
         def set_qt_color(color):
             if color == Cell.RED:
                 return QtCore.Qt.red
@@ -591,37 +623,49 @@ class Field(QtWidgets.QMainWindow):
             brush.setStyle(QtCore.Qt.DiagCrossPattern)
             qp.setBrush(brush)
 
-        def add_elements_to_path(point1, point2):
-            nonlocal path
-            nonlocal was_jump_border
-            nonlocal path_part
-            path.lineTo(point1)
-            if not was_jump_border:
-                was_jump_border = True
-                path_part = path
-                path = QtGui.QPainterPath()
-            path.moveTo(point2)
-            
+        def add_elements_for_drawing_path(list_lines, point1, point2, i): 
+            flag = False
+            list_lines[i].append(point1)   
+            for index in range ( len(list_lines) ):
+                last_element = list_lines[index][-1]
+                if (abs(last_element[0] + 1 - x) <= self.width/2 and abs(last_element[1] + 1 - y) <= self.height/2 or
+                        abs(last_element[0] + 1 - x) <= self.width/2 and abs(last_element[1] - y) <= self.height/2 or
+                        abs(last_element[0] + 1 - x) <= self.width/2 and abs(last_element[1] - 1- y) <= self.height/2 or
+                        abs(last_element[0] - x) <= self.width/2 and abs(last_element[1] + 1 - y) <= self.height/2 or
+                        abs(last_element[0] - x) <= self.width/2 and abs(last_element[1] - 1- y) <= self.height/2 or
+                        abs(last_element[0] - 1 - x) <= self.width/2 and abs(last_element[1] + 1 - y) <= self.height/2 or
+                        abs(last_element[0] - 1 - x) <= self.width/2 and abs(last_element[1] - y) <= self.height/2 or
+                        abs(last_element[0] - 1 - x) <= self.width/2 and abs(last_element[1] - 1- y) <= self.height/2):
+                    flag = True
+                    i = index
+                    break
+            if not flag:
+                list_lines.append([])
+                i = len(list_lines) - 1        
+            list_lines[i].append(point2)
+            return i
+        
         for (jump_list, color, _black_points, _square) in self.game.lines:
             if (jump_list[0][0] == 0 or
                 (jump_list[0][1] == self.height - 1 or jump_list[0][1] == 0) and
                (abs(jump_list[1][1] - jump_list[0][1]) <= 1)):
                 jump_list = jump_list[::-1]
-            path = QtGui.QPainterPath()
-            path_part = QtGui.QPainterPath()
-            was_jump_border = False
             previos = jump_list[0]            
             previos_point = QtCore.QPoint(
                 dist_x * (1/2 + previos[0]), dist_y * (1/2 + previos[1]) + 25)
-            path.moveTo(previos_point)
             set_qp()
 
-            for (x, y) in jump_list[1:]:
+            list_lines = []
+            list_lines.append([])
+            list_lines[0].append(previos)
+            i = 0
+            for (x, y) in jump_list[1:]: 
                 point = QtCore.QPoint(
                     dist_x * (1/2 + x), dist_y * (1/2 + y) + 25)
                 if (abs(previos[0] - x) <= 1 and
                         abs(previos[1] - y) <= 1):
                     qp.drawLine(previos_point, point)
+                    list_lines[i].append((x, y))
                 else:
                     previos_x = previos_point.x()
                     previos_y = previos_point.y()
@@ -631,60 +675,87 @@ class Field(QtWidgets.QMainWindow):
                     min_x = min(current_x, previos_x)
                     max_y = max(current_y, previos_y)
                     min_y = min(current_y, previos_y)
+
                     if previos[0] == x:
                         draw_ver(qp, previos_x, previos_y, current_y)
-                        first = QtCore.QPoint(previos_x, self.height * dist_y + 25)
-                        second = QtCore.QPoint(previos_x, 25)
                         if previos[1] > y:
-                            add_elements_to_path(first, second)
+                            i = add_elements_for_drawing_path(list_lines, (previos[0], self.height - 1 + 0.5), (previos[0], -0.5), i)
                         else:
-                            add_elements_to_path(second, first)
+                            i = add_elements_for_drawing_path(list_lines, (previos[0], -0.5), (previos[0], self.height - 1 + 0.5), i)
                     elif previos[1] == y:
                         draw_horiz(qp, previos_x, previos_y, current_x)
-                        first = QtCore.QPoint(self.width * dist_x, previos_y)
-                        second = QtCore.QPoint(0, previos_y)
                         if previos[0] > x:
-                            add_elements_to_path(first, second)
+                            i = add_elements_for_drawing_path(list_lines, (self.width - 1 + 0.5, previos[1]), (- 0.5, previos[1]), i)
                         else:
-                            add_elements_to_path(second, first)                      
+                            i = add_elements_for_drawing_path(list_lines, (- 0.5, previos[1]), (self.width - 1 + 0.5, previos[1]), i) 
                     elif abs(previos[0] - x) == 1:
                         if (previos[0] - x) * (previos[1] - y) < 0:
                             draw_d_v(qp, QtCore.QPoint(min_x, max_y),
                                 QtCore.QPoint(max_x, min_y), 1)                            
                             if previos[0] > x:
-                                add_elements_to_path(QtCore.QPoint(previos_x - dist_x/2, 25), QtCore.QPoint(current_x + dist_x/2, self.height * dist_y + 25))
+                                i = add_elements_for_drawing_path(list_lines, (previos[0] - 0.5, -0.5), (x + 0.5, self.height - 1 + 0.5), i)
                             else:
-                                add_elements_to_path(QtCore.QPoint(previos_x + dist_x/2, self.height * dist_y + 25), QtCore.QPoint(current_x - dist_x/2, 25))
+                                i = add_elements_for_drawing_path(list_lines, (previos[0] + 0.5, self.height - 1 + 0.5), (x - 0.5, -0.5), i)
                         else:
                             draw_d_v(qp, QtCore.QPoint(max_x, max_y),
                                 QtCore.QPoint(min_x, min_y), -1)
                             if previos[0] > x:
-                                add_elements_to_path(QtCore.QPoint(previos_x - dist_x/2, self.height * dist_y + 25), QtCore.QPoint(current_x + dist_x/2, 25))
+                                i = add_elements_for_drawing_path(list_lines, (previos[0] - 0.5, self.height - 1 +0.5), (x + 0.5, -0.5), i)
                             else:
-                                add_elements_to_path(QtCore.QPoint(previos_x + dist_x/2, 25), QtCore.QPoint(current_x - dist_x/2, self.height * dist_y + 25))
+                                i = add_elements_for_drawing_path(list_lines, (previos[0] + 0.5, -0.5), (x - 0.5, self.height - 1 + 0.5), i)
                     elif abs(previos[1] - y) == 1:
                         if (previos[0] - x) * (previos[1] - y) < 0:
                             draw_d_h(qp, QtCore.QPoint(min_x, max_y),
                                 QtCore.QPoint(max_x, min_y), -1)
                             if previos[0] > x:
-                                add_elements_to_path(QtCore.QPoint(self.width * dist_x, previos_y + dist_y/2), QtCore.QPoint(0, current_y - dist_y/2))
+                                i = add_elements_for_drawing_path(list_lines, (self.width - 1 + 0.5, previos[1] + 0.5), (- 0.5, y - 0.5), i)
                             else:
-                                add_elements_to_path(QtCore.QPoint(0, previos_y - dist_y/2), QtCore.QPoint(self.width * dist_x, current_y + dist_y/2))
+                                i = add_elements_for_drawing_path(list_lines, (-0.5, previos[1] - 0.5), (self.width - 1 + 0.5, y + 0.5), i)
                         else:
                             draw_d_h(qp, QtCore.QPoint(min_x, min_y),
                                 QtCore.QPoint(max_x, max_y), 1)
                             if previos[0] > x:
-                                add_elements_to_path(QtCore.QPoint(self.width * dist_x, previos_y - dist_y/2), QtCore.QPoint(0, current_y + dist_y/2))
+                                i = add_elements_for_drawing_path(list_lines, (self.width - 1 + 0.5, previos[1] - 0.5), (-0.5, y + 0.5), i)
                             else:
-                                add_elements_to_path(QtCore.QPoint(0, previos_y + dist_y/2), QtCore.QPoint(self.width * dist_x, current_y - dist_y/2))
+                                i = add_elements_for_drawing_path(list_lines, (-0.5, previos[1] + 0.5), (self.width - 1 + 0.5, y - 0.5), i)
+                    else:
+                        if (previos[0] - x) * (previos[1] - y) > 0:
+                            draw_diagonal_right(qp, previos_x, previos_y, current_x, current_y)
+                            if (previos[0] - x) < 0:
+                                i = add_elements_for_drawing_path(list_lines, (-0.5, -0.5), (self.width - 1 + 0.5, self.height - 1 + 0.5), i)
+                            else:
+                                i = add_elements_for_drawing_path(list_lines, (self.width - 1 + 0.5, self.height - 1 + 0.5), (-0.5, -0.5), i)
+                        else:
+                            draw_diagonal_left(qp, previos_x, previos_y, current_x, current_y)
+                            if (previos[0] - x) < 0:
+                                i = add_elements_for_drawing_path(list_lines, (-0.5, self.height - 1 + 0.5), (self.width - 1 + 0.5, - 0.5), i)
+                            else:
+                                i = add_elements_for_drawing_path(list_lines, (self.width - 1 + 0.5, - 0.5), (-0.5, self.height - 1 + 0.5), i)                                  
 
-                path.lineTo(point)
+                    list_lines[i].append((x, y))
+
                 previos_point = point
                 previos = (x, y)
-            path.connectPath(path_part)
+            if len(list_lines) > 1 and list_lines[0][0] == list_lines[-1][-1]:
+                list_lines[0] += list_lines[-1]
+                del list_lines[-1]
             qp.setPen(set_qt_color(color))
             qp.setRenderHint(QtGui.QPainter.Antialiasing)
-            qp.drawPath(path)
+            for list_line in list_lines:
+                path = QtGui.QPainterPath()
+                list_line.append(list_line[0])
+                path.moveTo(QtCore.QPoint(dist_x * (1/2 + list_line[0][0]), dist_y * (1/2 + list_line[0][1]) + 25))
+                for i in range(len(list_line[1:])):
+                    if list_line[i][0] == -0.5 and list_line[i + 1][1] == -0.5 or list_line[i][1] == -0.5 and list_line[i + 1][0] == -0.5:
+                        path.lineTo(QtCore.QPoint(0, 0))    
+                    elif list_line[i][0] == -0.5 and list_line[i + 1][1] == self.height - 0.5 or list_line[i][1] == self.height - 0.5 and list_line[i + 1][0] == -0.5:
+                        path.lineTo(QtCore.QPoint(0, dist_y * self.height + 25))
+                    elif list_line[i][0] == self.width - 0.5 and list_line[i + 1][1] == -0.5 or list_line[i][1] == - 0.5 and list_line[i + 1][0] == self.width - 0.5:
+                        path.lineTo(QtCore.QPoint(dist_x * self.width, 0))
+                    elif list_line[i][0] == self.width - 0.5 and list_line[i + 1][1] == self.height - 0.5 or list_line[i][1] == self.height - 0.5 and list_line[i + 1][0] == self.width - 0.5:
+                        path.lineTo(QtCore.QPoint(dist_x * self.width, dist_y * self.height + 25))
+                    path.lineTo(QtCore.QPoint(dist_x * (1/2 + list_line[i + 1][0]), dist_y * (1/2 + list_line[i + 1][1]) + 25))   
+                qp.drawPath(path)
 
     def get_coordinats(self):
         dist_x = self.size().width() / self.width

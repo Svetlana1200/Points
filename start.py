@@ -8,6 +8,7 @@ from cell import Cell
 from gui import Field, RecordsWin, Rival
 from soket import Socket
 import contextlib
+import psutil
 
 
 class Start:
@@ -37,8 +38,18 @@ class Start:
                 game, field, rival = Start.change_rival(
                     game, field)# копипаста 1 начало
                 if rival == (Rival.ONLINE, Rival.ONLINE):
-                    print("socket")
-                    self.socket = Socket((field.saving_for_online["ip"], 14900))
+                    print("socket") 
+                    try:
+                        self.socket = Socket((field.saving_for_online["ip"], 14900))
+                    except TimeoutError:
+                        field.name_win = {}
+                        field.name_win['size'] = '15x15'
+                        field.name_win['first'] = Rival.HUMAN
+                        field.name_win['second'] = Rival.HUMAN
+                        game, field, rival = Start.change_rival(
+                            game, field)
+                        isFirst = True
+                        break
                     if self.socket.conn is not None:
                         color_size = self.socket.recv_color_and_size()
                         while color_size is None: # возможно не надо
@@ -67,7 +78,7 @@ class Start:
                     return                    
                 if field.exit:
                     return
-                QtTest.QTest.qWait(500)
+                QtTest.QTest.qWait(100)
 
             if (rival[0] == Rival.AIrandom and game.turn == Cell.BLUE or
                rival[1] == Rival.AIrandom and game.turn == Cell.RED):
@@ -91,9 +102,10 @@ class Start:
                 if game.turn == field.saving_for_online["color"]:
                     field.x, field.y = -1, -1
                     coordinats = field.get_coordinats()
-                    while (not game.make_step(*coordinats)) and not field.exit and not field.exit and (field.name_win is None or field.name_win['size'] is None):
+                    while (not game.make_step(*coordinats)) and not field.exit and (field.name_win is None or field.name_win['size'] is None):
                         if self.socket.sock is not None and self.socket.accept() is not None:
                             self.socket.send_color_and_size(field.saving_for_online['color'], field.saving_for_online['size'])
+                            QtWidgets.QMessageBox.information(field, 'Start', 'Enemy connected')
                             print("START")
                         if self.socket.conn is not None:
                             data = self.socket.recv()
@@ -111,18 +123,22 @@ class Start:
                         if self.socket.conn is None:
                             while self.socket.accept() is None and not field.exit: # копипаста 2
                                 QtCore.QCoreApplication.processEvents() # копипаста 2
-                            self.socket.send_color_and_size(field.saving_for_online['color'], field.saving_for_online['size']) # копипаста 2 
-                            print("START") # копипаста 2
-                        if not field.exit:
+                            if not field.exit and (field.name_win is None or field.name_win['size'] is None):
+                                self.socket.send_color_and_size(field.saving_for_online['color'], field.saving_for_online['size']) # копипаста 2 
+                                QtWidgets.QMessageBox.information(field, 'Start', 'Enemy connected')
+                                print("START") # копипаста 2
+                        if not field.exit and (field.name_win is None or field.name_win['size'] is None):
                             self.socket.send(coordinats)
-                    else:
+                    elif self.socket.conn is not None:
                         self.socket.send('CHANGING_RIVAL')
                 else:
                     if self.socket.conn is None:
-                        while self.socket.accept() is None and not field.exit: # копипаста 2
+                        while self.socket.accept() is None and not field.exit and (field.name_win is None or field.name_win['size'] is None): # копипаста 2
                             QtCore.QCoreApplication.processEvents() # копипаста 2
-                        self.socket.send_color_and_size(field.saving_for_online['color'], field.saving_for_online['size']) # копипаста 2
-                        print("START") # копипаста 2
+                        if not field.exit and (field.name_win is None or field.name_win['size'] is None):
+                            self.socket.send_color_and_size(field.saving_for_online['color'], field.saving_for_online['size']) # копипаста 2
+                            QtWidgets.QMessageBox.information(field, 'Start', 'Enemy connected')
+                            print("START") # копипаста 2
                     coordinats = None
                     while coordinats is None and not field.exit and (field.name_win is None or field.name_win['size'] is None):
                         coordinats = self.socket.recv()
@@ -135,7 +151,7 @@ class Start:
                         QtCore.QCoreApplication.processEvents()
                     if not field.exit and (field.name_win is None or field.name_win['size'] is None):
                         game.make_step(*coordinats)
-                    elif not (field.name_win is None or field.name_win['size'] is None):
+                    elif not (field.name_win is None or field.name_win['size'] is None) and self.socket.conn is not None:
                         self.socket.send('CHANGING_RIVAL')
             else:
                 field.x, field.y = -1, -1
@@ -144,11 +160,27 @@ class Start:
                     QtCore.QCoreApplication.processEvents()
                     coordinats = field.get_coordinats()                    
                     if field.name_win and field.name_win['size']: # копипаста 1 начало
+                        if rival == (Rival.ONLINE, Rival.ONLINE):
+                            with contextlib.suppress(AttributeError):
+                                self.socket.sock.close()
+                            with contextlib.suppress(AttributeError):
+                                self.socket.conn.close()
                         game, field, rival = Start.change_rival(
                             game, field)
                         if rival == (Rival.ONLINE, Rival.ONLINE):
                             print("socket")
-                            self.socket = Socket((field.saving_for_online["ip"], 14900))
+                            try:
+                                self.socket = Socket((field.saving_for_online["ip"], 14900))
+                            except TimeoutError:
+                                field.name_win = {}
+                                field.name_win['size'] = '15x15'
+                                field.name_win['first'] = Rival.HUMAN
+                                field.name_win['second'] = Rival.HUMAN
+                                game, field, rival = Start.change_rival(
+                                    game, field)
+                                isFirst = True
+                                break
+
                             if self.socket.conn is not None:
                                 color_size = self.socket.recv_color_and_size()
                                 while color_size is None: # возможно не надо
@@ -167,11 +199,9 @@ class Start:
                                     game, field)    
                         isFirst = True # копипаста 1 конец
                         break
-
-                #field.pause = True
             
             if field.exit:
-                if rival == (Rival.ONLINE, Rival.ONLINE):
+                if rival == (Rival.ONLINE, Rival.ONLINE) and self.socket.conn is not None:
                     self.socket.send('EXIT')
                     print("send exit")
                 return
@@ -186,6 +216,11 @@ class Start:
                 while not field.exit:
                     QtCore.QCoreApplication.processEvents()
 
+        if rival == (Rival.ONLINE, Rival.ONLINE):
+            with contextlib.suppress(AttributeError):
+                self.socket.sock.close()
+            with contextlib.suppress(AttributeError):
+                self.socket.conn.close()
         field.winner = game.get_winner()
         field.update()
         if (Rival.AIeasy in rival or Rival.AIrandom in rival or Rival.AInormal in rival) and Rival.HUMAN in rival:
@@ -201,10 +236,10 @@ class Start:
 
         rival = ((field.name_win.get('first', None), field.name_win.get('second', None)))
         if rival == (None, None):
-            rival = (Rival.ONLINE, Rival.ONLINE)
             color = field.saving_for_online["color"]
             ip = field.saving_for_online["ip"]
             size = field.saving_for_online["size"]
+            rival = (Rival.ONLINE, Rival.ONLINE)
             
         high_scores = Start.get_high_scores(game)
         field = Field(game, high_scores, rival)

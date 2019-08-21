@@ -6,19 +6,18 @@ class Socket:
         self.sock = None
         self.conn = None
         self.adress = adress
-        try:
-            print("conn")
-            self.conn = socket.socket()
-            self.conn.connect(adress)
-            print("conn finish")
-
-        except (ConnectionRefusedError, TimeoutError):
+        if self.adress[0] == "":
             print("sock")
             self.conn = None
             self.sock = socket.socket()
             self.sock.bind(adress)
             self.sock.listen(1)
             print("sock finish")
+        else:
+            print("conn")
+            self.conn = socket.socket()
+            self.conn.connect(adress)
+            print("conn finish")
             
     def accept(self):    
         self.sock.setblocking(0)
