@@ -38,6 +38,9 @@ class Game:
         self.count_red = 0
         self.count_blue = 0
 
+        self.last_red = None
+        self.last_blue = None
+
         for x in range(self.width):
             self.field.append([])
             for _y in range(self.height):
@@ -48,10 +51,15 @@ class Game:
             return False
         if self.field[x][y] == Cell.EMPTY:
             self.field[x][y] = self.turn
+            if self.turn == Cell.RED:
+                self.last_red = (x, y)
+            else:
+                self.last_blue = (x, y)
+
             self.cancellation.append(((x, y), curent_point, count_poins))
             print("MAKE STEP", self.turn, x, y)
             del self.repetitions[:]
-            if len(self.cancellation) > Game.UNDO_COUNT * 2:
+            if len(self.cancellation) > Game.UNDO_COUNT * 2 + 2:
                 del self.cancellation[0]
 
             with contextlib.suppress(ValueError):
@@ -533,6 +541,8 @@ class Game:
             return self.neigbour_blue, self.step_enemy_blue, self.neigbour_red, self.step_enemy_red
 
     def undo(self, enemy):
+        if len(self.cancellation) <=2:
+            raise IndexError        
         (x, y), curent_point, count_poins = self.cancellation.pop()
         print("UNDO ", x, y)
         if enemy == Rival.AInormal and len(self.cancellation) > 0:
@@ -570,6 +580,11 @@ class Game:
         if not find_line:
             self.repetitions.append(((x, y), color_undo_point, (), curent_point, count_poins))
         
+        if color_undo_point == Cell.RED:
+            self.last_red = self.cancellation[-2][0]
+        else:
+            self.last_blue = self.cancellation[-2][0]
+
         if enemy == Rival.AIrandom:
             return
         
@@ -628,6 +643,11 @@ class Game:
             for ((black_x, black_y), _color) in line[2]: # черные точки
                 self.field[black_x][black_y] = Cell.BLACK
                 
+        if color_undo_point == Cell.RED:
+            self.last_red = (x, y)
+        else:
+            self.last_blue = (x, y)
+            
         if enemy == Rival.AIrandom:
             return
         

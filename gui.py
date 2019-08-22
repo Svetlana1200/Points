@@ -285,14 +285,14 @@ class OnlineOrNotWindow(QtWidgets.QDialog):
 
     def set_online(self):
         def check(params):
-            ips = []
+            """ips = []
             for ifaceName in interfaces():
                 addresses = [i['addr'] for i in ifaddresses(ifaceName).setdefault(AF_INET, [{'addr':'No IP addr'}] )]
                 for i in addresses:
                     if i != 'No IP addr':
-                        ips.append(i)
+                        ips.append(i)"""
             parts = params.split('.')
-            if len(parts) != 4 or parts[0] != '192' or parts[1] != '168' or params not in ips:
+            if len(parts) != 4 or parts[0] != '192' or parts[1] != '168':# or params not in ips:
                 QtWidgets.QMessageBox.critical(self, 'IP', 'Недопустимый ip!')
                 return
             for part in parts:
@@ -423,7 +423,6 @@ class Field(QtWidgets.QMainWindow):
         self.name_win = {}        
         self.name_win["size"] = "15x15"
         
-
     def set_onl(self):
         setting = self.new_game_dialog.set_online()
         if setting == "not online":
@@ -497,6 +496,10 @@ class Field(QtWidgets.QMainWindow):
         dist_y = (self.size().height() - 150) / self.height
         for i in range(self.width):
             for j in range(self.height):
+                if (i, j) == self.game.last_blue or (i, j) == self.game.last_red:
+                    qp.setPen(QtGui.QPen(QtCore.Qt.black, 4, QtCore.Qt.SolidLine))
+                else:
+                    qp.setPen(QtGui.QPen(QtCore.Qt.black, 2, QtCore.Qt.SolidLine))
                 qp.setBrush(Field.CELL_BRUSHES[self.game.field[i][j]])
                 point = QtCore.QPoint(
                     dist_x * (i + 1/2), dist_y * (j + 1/2) + 25)

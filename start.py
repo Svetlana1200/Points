@@ -8,7 +8,6 @@ from cell import Cell
 from gui import Field, RecordsWin, Rival
 from soket import Socket
 import contextlib
-import psutil
 
 
 class Start:
@@ -29,45 +28,42 @@ class Start:
             field.update()
             isFirst = False
             if field.name_win and field.name_win['size']:
-                if rival == (Rival.ONLINE, Rival.ONLINE):
-                    with contextlib.suppress(AttributeError):
-                        self.socket.sock.close()
-                    with contextlib.suppress(AttributeError):
-                        self.socket.conn.close()
 
-                game, field, rival = Start.change_rival(
-                    game, field)# копипаста 1 начало
-                if rival == (Rival.ONLINE, Rival.ONLINE):
-                    print("socket") 
+                if field.name_win.get('first', None) is None:
                     try:
                         self.socket = Socket((field.saving_for_online["ip"], 14900))
-                    except TimeoutError:
-                        field.name_win = {}
-                        field.name_win['size'] = '15x15'
-                        field.name_win['first'] = Rival.HUMAN
-                        field.name_win['second'] = Rival.HUMAN
-                        game, field, rival = Start.change_rival(
-                            game, field)
-                        isFirst = True
-                        break
-                    if self.socket.conn is not None:
-                        color_size = self.socket.recv_color_and_size()
-                        while color_size is None: # возможно не надо
+                        print("socket") 
+                    except (TimeoutError, ConnectionRefusedError):
+                        field.name_win = None
+                        QtWidgets.QMessageBox.critical(field, 'IP', 'Недопустимый ip!')
+                if field.name_win:
+                    if rival == (Rival.ONLINE, Rival.ONLINE):
+                        with contextlib.suppress(AttributeError):
+                            self.socket.sock.close()
+                        with contextlib.suppress(AttributeError):
+                            self.socket.conn.close()
+
+                    game, field, rival = Start.change_rival(
+                        game, field)# копипаста 1 начало
+                    if rival == (Rival.ONLINE, Rival.ONLINE):
+                        if self.socket.conn is not None:
                             color_size = self.socket.recv_color_and_size()
-                        color, size = color_size
-                        field.name_win = {}
-                        field.name_win['size'] = size
-                        field.saving_for_online = {}
-                        if color == Cell.RED:
-                            field.saving_for_online["color"] = Cell.BLUE
-                        else:
-                            field.saving_for_online["color"] = Cell.RED
-                        field.saving_for_online["ip"] = self.socket.adress[0]
-                        field.saving_for_online["size"] = size
-                        game, field, rival = Start.change_rival(
-                            game, field)    
-                isFirst = True
-                continue # копипаста 1 конец
+                            while color_size is None: # возможно не надо
+                                color_size = self.socket.recv_color_and_size()
+                            color, size = color_size
+                            field.name_win = {}
+                            field.name_win['size'] = size
+                            field.saving_for_online = {}
+                            if color == Cell.RED:
+                                field.saving_for_online["color"] = Cell.BLUE
+                            else:
+                                field.saving_for_online["color"] = Cell.RED
+                            field.saving_for_online["ip"] = self.socket.adress[0]
+                            field.saving_for_online["size"] = size
+                            game, field, rival = Start.change_rival(
+                                game, field)    
+                    isFirst = True
+                    continue # копипаста 1 конец
             if Rival.HUMAN not in rival:
                 field.update()
                 if field.results:
@@ -160,45 +156,42 @@ class Start:
                     QtCore.QCoreApplication.processEvents()
                     coordinats = field.get_coordinats()                    
                     if field.name_win and field.name_win['size']: # копипаста 1 начало
-                        if rival == (Rival.ONLINE, Rival.ONLINE):
-                            with contextlib.suppress(AttributeError):
-                                self.socket.sock.close()
-                            with contextlib.suppress(AttributeError):
-                                self.socket.conn.close()
-                        game, field, rival = Start.change_rival(
-                            game, field)
-                        if rival == (Rival.ONLINE, Rival.ONLINE):
-                            print("socket")
+                        if field.name_win.get('first', None) is None:
                             try:
                                 self.socket = Socket((field.saving_for_online["ip"], 14900))
-                            except TimeoutError:
-                                field.name_win = {}
-                                field.name_win['size'] = '15x15'
-                                field.name_win['first'] = Rival.HUMAN
-                                field.name_win['second'] = Rival.HUMAN
-                                game, field, rival = Start.change_rival(
-                                    game, field)
-                                isFirst = True
-                                break
+                                print("socket")
+                            except (TimeoutError, ConnectionRefusedError):
+                                field.name_win = None
+                                QtWidgets.QMessageBox.critical(field, 'IP', 'Недопустимый ip!')
+                        if field.name_win:
+                        
+                            if rival == (Rival.ONLINE, Rival.ONLINE):
+                                with contextlib.suppress(AttributeError):
+                                    self.socket.sock.close()
+                                with contextlib.suppress(AttributeError):
+                                    self.socket.conn.close()
+                            game, field, rival = Start.change_rival(
+                                game, field)
+                            if rival == (Rival.ONLINE, Rival.ONLINE):
 
-                            if self.socket.conn is not None:
-                                color_size = self.socket.recv_color_and_size()
-                                while color_size is None: # возможно не надо
+                                if self.socket.conn is not None:
                                     color_size = self.socket.recv_color_and_size()
-                                color, size = color_size
-                                field.name_win = {}
-                                field.name_win['size'] = size
-                                field.saving_for_online = {}
-                                if color == Cell.RED:
-                                    field.saving_for_online["color"] = Cell.BLUE
-                                else:
-                                    field.saving_for_online["color"] = Cell.RED
-                                field.saving_for_online["ip"] = self.socket.adress[0]
-                                field.saving_for_online["size"] = size
-                                game, field, rival = Start.change_rival(
-                                    game, field)    
-                        isFirst = True # копипаста 1 конец
-                        break
+                                    while color_size is None: # возможно не надо
+                                        color_size = self.socket.recv_color_and_size()
+                                    color, size = color_size
+                                    field.name_win = {}
+                                    field.name_win['size'] = size
+                                    field.saving_for_online = {}
+                                    if color == Cell.RED:
+                                        field.saving_for_online["color"] = Cell.BLUE
+                                    else:
+                                        field.saving_for_online["color"] = Cell.RED
+                                    field.saving_for_online["ip"] = self.socket.adress[0]
+                                    field.saving_for_online["size"] = size
+                                    game, field, rival = Start.change_rival(
+                                        game, field)    
+                            isFirst = True # копипаста 1 конец
+                            break
             
             if field.exit:
                 if rival == (Rival.ONLINE, Rival.ONLINE) and self.socket.conn is not None:
