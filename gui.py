@@ -1,17 +1,16 @@
-import sys
 from PyQt5 import QtWidgets, QtCore, QtGui, QtTest
-import os
-from enum import Enum
+#import os
+#from enum import Enum
 from logic import Game
 from cell import Cell
 import contextlib
 from rivals import Rival
-from netifaces import interfaces, ifaddresses, AF_INET
 
 
 class StartGameWindowNotOnline(QtWidgets.QDialog):
     def __init__(self, parent=None):
-        super().__init__(parent)
+        super().__init__(parent)        
+        self.distance_between_points = 25
         self.setWindowTitle('Setting')
         self._sel_layout = QtWidgets.QVBoxLayout()
 
@@ -93,10 +92,10 @@ class StartGameWindowNotOnline(QtWidgets.QDialog):
         def check(params):
             try:
                 size = tuple(map(int, params.split('x')))                
-                if (size[0] <= 5 or size[1] <= 5 or size[0] * 20 >
+                if (size[0] <= 5 or size[1] <= 5 or size[0] * self.distance_between_points >
                           QtWidgets.QDesktopWidget()
                             .availableGeometry().height() - 200 or
-                          size[1] * 20 >
+                          size[1] * self.distance_between_points >
                           QtWidgets.QDesktopWidget()
                             .availableGeometry().height() - 200):
                     QtWidgets.QMessageBox.critical(self, 'Size',
@@ -126,6 +125,7 @@ class StartGameWindowNotOnline(QtWidgets.QDialog):
 class StartGameWindowOnline(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.distance_between_points = 25
         self.setWindowTitle('Setting')
         self._sel_layout = QtWidgets.QVBoxLayout()
 
@@ -201,10 +201,10 @@ class StartGameWindowOnline(QtWidgets.QDialog):
         def check(params):
             try:
                 size = tuple(map(int, params.split('x')))                
-                if (size[0] <= 5 or size[1] <= 5 or size[0] * 20 >
+                if (size[0] <= 5 or size[1] <= 5 or size[0] * self.distance_between_points >
                             QtWidgets.QDesktopWidget()
                             .availableGeometry().height() - 200 or
-                            size[1] * 20 >
+                            size[1] * self.distance_between_points >
                             QtWidgets.QDesktopWidget()
                             .availableGeometry().height() - 200):
                     QtWidgets.QMessageBox.critical(self, 'Size',
@@ -285,12 +285,6 @@ class OnlineOrNotWindow(QtWidgets.QDialog):
 
     def set_online(self):
         def check(params):
-            """ips = []
-            for ifaceName in interfaces():
-                addresses = [i['addr'] for i in ifaddresses(ifaceName).setdefault(AF_INET, [{'addr':'No IP addr'}] )]
-                for i in addresses:
-                    if i != 'No IP addr':
-                        ips.append(i)"""
             parts = params.split('.')
             if len(parts) != 4 or parts[0] != '192' or parts[1] != '168':# or params not in ips:
                 QtWidgets.QMessageBox.critical(self, 'IP', 'Недопустимый ip!')
@@ -333,6 +327,8 @@ class Field(QtWidgets.QMainWindow):
         self.name_win = None
         self.record_win = None
         self.results = False
+
+        self.waiting = ""
 
         self.initUI()
 
@@ -459,7 +455,7 @@ class Field(QtWidgets.QMainWindow):
         self.move(qr.topLeft())
 
     def closeEvent(self, event):
-        reply = QtWidgets.QMessageBox.question(
+        """reply = QtWidgets.QMessageBox.question(
             self, 'Message', "Are you sure to quit?",
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
             QtWidgets.QMessageBox.No)
@@ -467,7 +463,8 @@ class Field(QtWidgets.QMainWindow):
             event.accept()         
             self.exit = True
         else:
-            event.ignore()
+            event.ignore()"""
+        self.exit = True
 
     def keyPressEvent(self, e):
         if e.key() == QtCore.Qt.Key_Escape:
@@ -539,12 +536,13 @@ class Field(QtWidgets.QMainWindow):
         else:
             turn = "Blue"
             color = QtGui.QColor(0, 0, 255)
-        if Rival.AIeasy in self.rival or Rival.AIrandom in self.rival or Rival.AInormal in self.rival:
+        
+        if (Rival.AIeasy in self.rival or Rival.AIrandom in self.rival or Rival.AInormal in self.rival) and Rival.HUMAN in self.rival:
             if self.high_scores:
                 name_and_score = '{} {}'.format(*self.high_scores[0])
             else:
                 name_and_score = "No records"
-            text = (f"Best score: {name_and_score}; \nRed score: "
+            text = (f"{self.waiting}Best score: {name_and_score}; \nRed score: "
                     f"{self.game.score_red}; \n"
                     f"Blue score: {self.game.score_blue}:\n")
             qp.setPen(QtGui.QColor(0, 0, 0))
@@ -554,15 +552,20 @@ class Field(QtWidgets.QMainWindow):
                 player = 'Your'
             else:
                 player = "Enemy's"
-            text = (f"{player} step; \nRed score: "
+            text = (f"{self.waiting}{player} step; \nRed score: "
+                    f"{self.game.score_red}; \n"
+                    f"Blue score: {self.game.score_blue};\n")
+            qp.setPen(color)
+        elif self.rival == (Rival.HUMAN, Rival.HUMAN):
+            text = (f"{self.waiting}{turn} step; \nRed score: "
                     f"{self.game.score_red}; \n"
                     f"Blue score: {self.game.score_blue};\n")
             qp.setPen(color)
         else:
-            text = (f"{turn} step; \nRed score: "
+            text = (f"{self.waiting}Red score: "
                     f"{self.game.score_red}; \n"
                     f"Blue score: {self.game.score_blue};\n")
-            qp.setPen(color)
+            qp.setPen(QtGui.QColor(0, 0, 0))
         qp.setFont(QtGui.QFont('Decorative', 15))
 
         qp.drawText(event.rect(), QtCore.Qt.AlignBottom, text)

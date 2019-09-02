@@ -8,11 +8,17 @@ from cell import Cell
 from gui import Field, RecordsWin, Rival
 from soket import Socket
 import contextlib
+from multiprocessing import Process
 
 
 class Start:
     def __init__(self):
         self.socket = None
+
+    def process_gui(self):
+        while True:
+            print(123)
+            QtCore.QCoreApplication.processEvents()
 
     def start_game(self):
         _app = QtWidgets.QApplication(sys.argv)
@@ -152,8 +158,8 @@ class Start:
             else:
                 field.x, field.y = -1, -1
                 coordinats = field.get_coordinats()
-                while (not game.make_step(*coordinats)) and not field.exit and not field.results:
-                    QtCore.QCoreApplication.processEvents()
+                while (not game.make_step(*coordinats)) and not field.exit and not field.results: #ДЛЯ НАЧАЛА ТУТЬ, ОСТАЛЬНОЕ ПО АНАЛОГИИ САМА ПОПРОБУЮ
+                    QtCore.QCoreApplication.processEvents() # ЭТА СТРОЧКА ОБРАБОТКИ СОБЫТИЙ
                     coordinats = field.get_coordinats()                    
                     if field.name_win and field.name_win['size']: # копипаста 1 начало
                         if field.name_win.get('first', None) is None:
@@ -192,6 +198,7 @@ class Start:
                                         game, field)    
                             isFirst = True # копипаста 1 конец
                             break
+
             
             if field.exit:
                 if rival == (Rival.ONLINE, Rival.ONLINE) and self.socket.conn is not None:
@@ -208,7 +215,7 @@ class Start:
                     _records = RecordsWin(stat)
                 while not field.exit:
                     QtCore.QCoreApplication.processEvents()
-
+        
         if rival == (Rival.ONLINE, Rival.ONLINE):
             with contextlib.suppress(AttributeError):
                 self.socket.sock.close()

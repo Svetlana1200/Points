@@ -16,7 +16,6 @@ class Game:
     def __init__(self, width, height):
         self.width = width
         self.height = height
-        self.distance_between_points = 50
         self.field = []
         self.lines = []
         self.score_blue = 0.0
@@ -41,6 +40,8 @@ class Game:
         self.last_red = None
         self.last_blue = None
 
+        self.undo_count  = 0
+
         for x in range(self.width):
             self.field.append([])
             for _y in range(self.height):
@@ -56,6 +57,8 @@ class Game:
             else:
                 self.last_blue = (x, y)
 
+            if self.undo_count != 0:
+                self.undo_count -= 1
             self.cancellation.append(((x, y), curent_point, count_poins))
             print("MAKE STEP", self.turn, x, y)
             del self.repetitions[:]
@@ -92,7 +95,7 @@ class Game:
                                  best_path_and_squre[1])
                 black_points = self.make_black_some_points(best_path_and_squre[0])
                 self.lines.append(
-                    (self.change_path_in_normal_size(best_path_and_squre[0]),
+                    (self._change_path_in_normal_size(best_path_and_squre[0]),
                      self.turn, 
                      black_points, 
                      best_path_and_squre[1]))
@@ -146,8 +149,8 @@ class Game:
             if (present_x + i == statr_x and
                 present_y + j == start_y and
                     len(jump_list) > 2):
-                if self.can_round(jump_list):# and (self.point_to_normal_size(*jump_list[-1]), self.point_to_normal_size(*jump_list[0])) not in [((0, 0), (self.width - 1, self.height - 1)), ((self.width - 1, self.height - 1), (0, 0)), ((0, self.height - 1), (self.width - 1, 0)), ((self.width - 1, 0), (0, self.height - 1))]:
-                    
+                #print(jump_list)
+                if self.can_round(jump_list):
                     square = self.count_square_wihtout_intersections(jump_list)
                     #print('can round', square, best_square, len(jump_list) < len(best_path))
                     if (square > best_square or
@@ -249,22 +252,6 @@ class Game:
 
         return path
 
-    def point_to_normal_size(self, point_x, point_y):
-        if point_x >= self.width:
-            xk = point_x - self.width
-        elif point_x == -1:
-            xk = self.width - 1
-        else:
-            xk = point_x
-
-        if point_y >= self.height:
-            yk = point_y - self.height
-        elif point_y == -1:
-            yk = self.height - 1
-        else:
-            yk = point_y
-        return xk, yk
-
     def can_round(self, path):
         xp = []
         yp = []
@@ -301,14 +288,26 @@ class Game:
         return all_point > 0 and enemy_point / all_point >= 0.75
 
     def count_square_wihtout_intersections(self, present_path):
+        x_present = []
+        y_present = []
+        for (x, y) in present_path:
+            x_present.append(x)
+            y_present.append(y)
+
         squre = Geometry.count_squre(present_path)
         #print(squre, "squre")
-        changing_path = self.change_path_in_normal_size(present_path)
+        changing_path = self._change_path_in_normal_size(present_path)
         for element in self.lines:
             path = element[0]
             intersection = Geometry.get_intersection(path, changing_path, present_path)
             #print(intersection, "intersection")
             if intersection:
+                x_another = []
+                y_another = []
+                for (x, y) in path:
+                    x_another.append(x)
+                    y_another.append(y)
+
                 change = []#############################
                 change.append((intersection[0]))
                 for x, y in intersection[1:]:
@@ -326,7 +325,10 @@ class Game:
                         yk = y
                     change.append((xk, yk))############################
                 #print(change, "change")
+
+                #if len(change) == 3 and Geometry.point_in_polygon(*Geometry.get_middle_triangle(change), x_present, y_present) and Geometry.point_in_polygon(*Geometry.get_middle_triangle(change), x_another, y_another) or len(change) > 3:
                 squre -= Geometry.count_squre(change)
+
                 #print(squre, "squre")
         return squre
 
@@ -383,9 +385,9 @@ class Game:
 
     def process(self):
         self.change_turn_player()
-        return self.is_empty_cell_on_field()
+        return self._is_empty_cell_on_field()
 
-    def is_empty_cell_on_field(self):
+    def _is_empty_cell_on_field(self):
         for x in range(self.width):
             for y in range(self.height):
                 if self.field[x][y] == Cell.EMPTY:
@@ -402,7 +404,7 @@ class Game:
             return Cell.BLUE
         return Cell.EMPTY
 
-    def change_path_in_normal_size(self, path):
+    def _change_path_in_normal_size(self, path):
         normal = []
         for (x, y) in path:
             if 0 <= x < self.width and 0 <= y < self.height:
@@ -451,8 +453,8 @@ class Game:
             self.count_red += 1
         else:
             self.count_blue += 1
-        
         start = curent_point
+        print(curent_point, "curent_point 1", curent_point in steps_enemy)
         while True:
             if (curent_point is None 
                 or curent_point not in steps_enemy
@@ -487,9 +489,9 @@ class Game:
                             self.count_blue = 1
                     else:
                         return False
-
                 if curent_point == start:
                     return False
+                print(curent_point, "curent_point 2")
             for i, j in directions:
                 if curent_point[0] + i >= self.width:
                     xk = curent_point[0] + i - self.width
@@ -511,11 +513,23 @@ class Game:
                 count_lines = len(self.lines)
                 if self.make_step(xk, yk, curent_point, count_poins):
                     print("BLUE: ", self.count_blue, ", RED: ", self.count_red) 
+                    """if self.turn == Cell.BLUE:
+                        #self.curent_point_blue = curent_point
+                        self.neigbour_blue = neigbour
+                        self.step_enemy_blue = steps_enemy
+                    else:
+                        #self.curent_point_red = curent_point
+                        self.neigbour_red = neigbour
+                        self.step_enemy_red = steps_enemy"""
                     if count_lines == len(self.lines):
                         if self.turn == Cell.BLUE:
                             self.curent_point_blue = curent_point
+                            self.neigbour_blue = neigbour
+                            self.step_enemy_blue = steps_enemy
                         else:
                             self.curent_point_red = curent_point
+                            self.neigbour_red = neigbour
+                            self.step_enemy_red = steps_enemy       
                     elif ai == Rival.AInormal:
                         if self.turn == Cell.BLUE:
                             self.count_blue = 0
@@ -534,15 +548,16 @@ class Game:
                 steps_enemy.remove(curent_point)
             curent_point = None
   
-    def get_neigbours_steps_enemys(self, color_undo_point):
+    def _get_neigbours_steps_enemys(self, color_undo_point):
         if color_undo_point == Cell.RED:
             return self.neigbour_red, self.step_enemy_red, self.neigbour_blue,  self.step_enemy_blue
         else:
             return self.neigbour_blue, self.step_enemy_blue, self.neigbour_red, self.step_enemy_red
 
     def undo(self, enemy):
-        if len(self.cancellation) <=2:
-            raise IndexError        
+        if self.undo_count > Game.UNDO_COUNT * 2:
+            raise IndexError
+
         (x, y), curent_point, count_poins = self.cancellation.pop()
         print("UNDO ", x, y)
         if enemy == Rival.AInormal and len(self.cancellation) > 0:
@@ -554,7 +569,7 @@ class Game:
         color_undo_point = self.field[x][y]
         self.field[x][y] = Cell.EMPTY
 
-        neigbour, step_enemy, neigbour_another, step_enemy_another =  self.get_neigbours_steps_enemys(color_undo_point)
+        neigbour, step_enemy, neigbour_another, step_enemy_another =  self._get_neigbours_steps_enemys(color_undo_point)
       
         for line in self.lines:
             if (x, y) in line[0]:
@@ -580,10 +595,18 @@ class Game:
         if not find_line:
             self.repetitions.append(((x, y), color_undo_point, (), curent_point, count_poins))
         
-        if color_undo_point == Cell.RED:
-            self.last_red = self.cancellation[-2][0]
-        else:
-            self.last_blue = self.cancellation[-2][0]
+        try:
+            if color_undo_point == Cell.RED:
+                self.last_red = self.cancellation[-2][0]
+            else:
+                self.last_blue = self.cancellation[-2][0]
+        except IndexError:
+            if color_undo_point == Cell.RED:
+                self.last_red = None
+            else:
+                self.last_blue = None
+
+        self.undo_count += 1
 
         if enemy == Rival.AIrandom:
             return
@@ -596,6 +619,16 @@ class Game:
                 else:
                     self.curent_point_blue = None
                     self.neigbour_blue = set()
+            elif enemy == Rival.AInormal:
+                if curent_point not in step_enemy:
+                    step_enemy.append(curent_point)
+                if color_undo_point == Cell.RED:
+                    self.curent_point_red = curent_point
+                    self.neigbour_red = set()
+                else:
+                    self.curent_point_blue = curent_point
+                    self.neigbour_blue = set()
+            
             if enemy == Rival.AInormal:
                 if color_undo_point == Cell.RED:                
                     self.count_red -= 1
@@ -611,7 +644,7 @@ class Game:
         with contextlib.suppress(ValueError):
             step_enemy_another.remove((x, y))
         print("BLUE: ", self.count_blue, ", RED: ", self.count_red)             
-            
+
     def redo(self, enemy):
         (x, y), color_undo_point, line, curent_point, count_poins = self.repetitions.pop()
         print("REDO ", x, y)
@@ -622,7 +655,7 @@ class Game:
             next_x, next_y = None, None
         self.possible_steps.remove((x, y))
         self.field[x][y] = color_undo_point
-        neigbour, step_enemy, neigbour_another, step_enemy_another = self.get_neigbours_steps_enemys(color_undo_point)
+        neigbour, step_enemy, neigbour_another, step_enemy_another = self._get_neigbours_steps_enemys(color_undo_point)
 
         if len(line) > 0:
             self.lines.append(line)
@@ -647,7 +680,9 @@ class Game:
             self.last_red = (x, y)
         else:
             self.last_blue = (x, y)
-            
+
+        self.undo_count -= 1    
+        
         if enemy == Rival.AIrandom:
             return
         
@@ -671,7 +706,7 @@ class Game:
         with contextlib.suppress(ValueError):
             step_enemy_another.append((x, y))
         print("BLUE: ", self.count_blue, ", RED: ", self.count_red)      
-           
+
 
 class Geometry:
     @staticmethod
@@ -730,3 +765,12 @@ class Geometry:
                 farthest_point_x = x
                 farthest_point_y = y
         return farthest_point_x, farthest_point_y
+
+    @staticmethod        
+    def get_middle_triangle(path):
+        sum_x = 0
+        sum_y = 0
+        for x, y in path:
+            sum_x += x
+            sum_y += y
+        return sum_x/len(path), sum_y/len(path)
