@@ -1,5 +1,3 @@
-import sys
-from enum import Enum
 import copy
 import random
 import contextlib
@@ -47,8 +45,10 @@ class Game:
             for _y in range(self.height):
                 self.field[x].append(Cell.EMPTY)
 
-    def make_step(self, x, y, curent_point = None, count_poins = None): # curent_point - какая точка окружается AI, count_poins - количество точек окружения normal
+    def make_step(self, x, y, queue = None, curent_point = None, count_poins = None): # curent_point - какая точка окружается AI, count_poins - количество точек окружения normal
         if not self.in_border(x, y):
+            if queue is not None:
+                queue.put(False)
             return False
         if self.field[x][y] == Cell.EMPTY:
             self.field[x][y] = self.turn
@@ -100,7 +100,11 @@ class Game:
                      black_points, 
                      best_path_and_squre[1]))
                 print(self.lines[-1][0], self.lines[-1][1], self.lines[-1][3])
+            if queue is not None:
+                queue.put(self)
             return True
+        if queue is not None:
+            queue.put(False)
         return False
 
     def check_neighboring_points(self, statr_x,
@@ -111,7 +115,6 @@ class Game:
                       (0, 1), (1, 1), (1, 0), (1, -1), (0, -1)]
         for i, j in directions:
             if time.time() - start_time > Game.MAX_TIME:
-                print("time")
                 return best_path, best_square
 
             if present_x + i >= self.width:
@@ -120,7 +123,6 @@ class Game:
                 xk = self.width - 1
             else:
                 xk = present_x + i
-
             if present_y + j >= self.height:
                 yk = present_y + j - self.height
             elif present_y + j == -1:
@@ -131,7 +133,6 @@ class Game:
             if (abs(xk) < self.width and
                 abs(yk) < self.height and
                 self.field[xk][yk] == self.field[statr_x][start_y] and
-                    # ((xk, yk)) not in jump_list and
                     (present_x + i, present_y + j) not in jump_list and
                     len(jump_list) < Game.LENGTH_ROUND):
                 jump_list.append((present_x + i, present_y + j))
@@ -143,53 +144,23 @@ class Game:
 
         for i, j in directions:
             if time.time() - start_time > Game.MAX_TIME:
-                print("time")
                 return best_path, best_square
 
             if (present_x + i == statr_x and
                 present_y + j == start_y and
                     len(jump_list) > 2):
-                #print(jump_list)
                 if self.can_round(jump_list):
                     square = self.count_square_wihtout_intersections(jump_list)
-                    #print('can round', square, best_square, len(jump_list) < len(best_path))
                     if (square > best_square or
                         (square == best_square and
                             len(jump_list) < len(best_path))):
                         best_square = square
                         best_path = copy.copy(jump_list)
-                        #best_path.append((statr_x, start_y))
-                        #print(best_path, best_square)
                         return best_path, best_square
         return best_path, best_square
 
     def check_intersection_lines(self, path):
-        first = path[0] 
-        second = path[1] 
-        third = path[2] 
-        forth = path[3]
-        if ( (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) ):
-            path[1] = third
-            path[2] = second
-            second, third = third, second
-
-        """if ( ((second[0] - first[0], second[1] - first[1]) in [(-1, -1), (1, 1)] and (forth[0] - third[0], forth[1] - third[1]) in [(-1, 1), (1, -1)]
-            or (second[0] - first[0], second[1] - first[1]) in [(-1, 1), (1, -1)] and (forth[0] - third[0], forth[1] - third[1]) in [(-1, -1), (1, 1)]) 
-            and  (third[0] - second[0], third[1] - second[1]) in [(1, 0), (0, 1), (-1, 0), (0, -1)] ):
-            path[1] = third
-            path[2] = second"""
-        for ind in range(len(path[4:])):
-            first = second
-            second = third
-            third = forth
-            forth = path[ind + 4]
+        def get_result_of_condition(index, first, second, third, forth):
             if ( (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
              (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
              (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
@@ -198,58 +169,27 @@ class Game:
              (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
              (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
              (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) ):
-                path[ind + 2] = third
-                path[ind + 3] = second
+                path[index] = third
+                path[index + 1] = second
                 second, third = third, second
+            return second, third 
 
-        first = second
-        second = third
-        third = forth
-        forth = path[0]
-        if ( (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) ):
-            path[-2] = third
-            path[-1] = second
-            second, third = third, second
+        first, second, third, forth = path[0], path[1], path[2], path[3]
+        second, third  = get_result_of_condition(1, first, second, third, forth)
 
-        first = second
-        second = third
-        third = forth
-        forth = path[1]
-        if ( (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) ):
-            path[-1] = third
-            path[0] = second
-            second, third = third, second
+        for ind in range(len(path[4:])):
+            first, second, third, forth = second, third, forth, path[ind + 4]
+            second, third  = get_result_of_condition(ind + 2, first, second, third, forth)
 
-        first = second
-        second = third
-        third = forth
-        forth = path[2]
-        if ( (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) ):
-            path[0] = third
-            path[1] = second
-            second, third = third, second
-
+        first, second, third, forth = second, third, forth, path[0]
+        second, third  = get_result_of_condition(-2, first, second, third, forth)
+        
+        first, second, third, forth = second, third, forth, path[1]
+        second, third  = get_result_of_condition(-1, first, second, third, forth)
+        
+        first, second, third, forth = second, third, forth, path[2]
+        second, third  = get_result_of_condition(0, first, second, third, forth)
+        
         return path
 
     def can_round(self, path):
@@ -284,7 +224,6 @@ class Game:
                     all_point += 1
                     if self.field[x][y] == color:
                         enemy_point += 1
-        #print(all_point, enemy_point)
         return all_point > 0 and enemy_point / all_point >= 0.75
 
     def count_square_wihtout_intersections(self, present_path):
@@ -295,20 +234,17 @@ class Game:
             y_present.append(y)
 
         squre = Geometry.count_squre(present_path)
-        #print(squre, "squre")
         changing_path = self._change_path_in_normal_size(present_path)
         for element in self.lines:
             path = element[0]
             intersection = Geometry.get_intersection(path, changing_path, present_path)
-            #print(intersection, "intersection")
             if intersection:
                 x_another = []
                 y_another = []
                 for (x, y) in path:
                     x_another.append(x)
                     y_another.append(y)
-
-                change = []#############################
+                change = []
                 change.append((intersection[0]))
                 for x, y in intersection[1:]:
                     if change[-1][0] - x > self.width/2:
@@ -323,13 +259,8 @@ class Game:
                         yk = y - self.height
                     else:
                         yk = y
-                    change.append((xk, yk))############################
-                #print(change, "change")
-
-                #if len(change) == 3 and Geometry.point_in_polygon(*Geometry.get_middle_triangle(change), x_present, y_present) and Geometry.point_in_polygon(*Geometry.get_middle_triangle(change), x_another, y_another) or len(change) > 3:
+                    change.append((xk, yk))                
                 squre -= Geometry.count_squre(change)
-
-                #print(squre, "squre")
         return squre
 
     def count_score(self, path, square):
@@ -385,9 +316,8 @@ class Game:
 
     def process(self):
         self.change_turn_player()
-        return self._is_empty_cell_on_field()
 
-    def _is_empty_cell_on_field(self):
+    def is_empty_cell_on_field(self):
         for x in range(self.width):
             for y in range(self.height):
                 if self.field[x][y] == Cell.EMPTY:
@@ -435,7 +365,7 @@ class Game:
     def get_possible_step(self):
         return [(i, j) for i in range(self.width) for j in range(self.height)]
 
-    def make_easy_or_normal_step(self, ai):
+    def make_easy_or_normal_step(self, ai, queue):
         if ai != Rival.AIeasy and ai != Rival.AInormal:
             print("Ошибка. Этот метод только для AIeasy и AInormal")
         directions = [(-1, 0), (0, 1), (1, 0), (0, -1),
@@ -447,14 +377,11 @@ class Game:
         else:
             curent_point = self.curent_point_red
             neigbour = self.neigbour_red
-            steps_enemy = self.step_enemy_red
-        
+            steps_enemy = self.step_enemy_red        
         if self.turn == Cell.RED:
             self.count_red += 1
         else:
             self.count_blue += 1
-        start = curent_point
-        print(curent_point, "curent_point 1", curent_point in steps_enemy)
         while True:
             if (curent_point is None 
                 or curent_point not in steps_enemy
@@ -477,6 +404,7 @@ class Game:
                         else:
                             self.count_blue = 1
                     else:
+                        queue.put(False)
                         return False
                 else:
                     if steps_enemy:
@@ -488,10 +416,8 @@ class Game:
                         else:
                             self.count_blue = 1
                     else:
+                        queue.put(False)
                         return False
-                if curent_point == start:
-                    return False
-                print(curent_point, "curent_point 2")
             for i, j in directions:
                 if curent_point[0] + i >= self.width:
                     xk = curent_point[0] + i - self.width
@@ -511,16 +437,8 @@ class Game:
                 else:
                     count_poins = self.count_blue
                 count_lines = len(self.lines)
-                if self.make_step(xk, yk, curent_point, count_poins):
+                if self.make_step(xk, yk, curent_point = curent_point, count_poins = count_poins):
                     print("BLUE: ", self.count_blue, ", RED: ", self.count_red) 
-                    """if self.turn == Cell.BLUE:
-                        #self.curent_point_blue = curent_point
-                        self.neigbour_blue = neigbour
-                        self.step_enemy_blue = steps_enemy
-                    else:
-                        #self.curent_point_red = curent_point
-                        self.neigbour_red = neigbour
-                        self.step_enemy_red = steps_enemy"""
                     if count_lines == len(self.lines):
                         if self.turn == Cell.BLUE:
                             self.curent_point_blue = curent_point
@@ -535,6 +453,7 @@ class Game:
                             self.count_blue = 0
                         else:
                             self.count_red = 0
+                    queue.put(self)
                     return True
 
                 if ((self.turn == Cell.BLUE and self.field[xk][yk] == Cell.RED)
@@ -557,7 +476,6 @@ class Game:
     def undo(self, enemy):
         if self.undo_count > Game.UNDO_COUNT * 2:
             raise IndexError
-
         (x, y), curent_point, count_poins = self.cancellation.pop()
         print("UNDO ", x, y)
         if enemy == Rival.AInormal and len(self.cancellation) > 0:
@@ -568,15 +486,13 @@ class Game:
         find_line = False
         color_undo_point = self.field[x][y]
         self.field[x][y] = Cell.EMPTY
-
         neigbour, step_enemy, neigbour_another, step_enemy_another =  self._get_neigbours_steps_enemys(color_undo_point)
-      
+
         for line in self.lines:
             if (x, y) in line[0]:
                 find_line = True
                 self.repetitions.append(((x, y), color_undo_point, line, curent_point, count_poins))
                 self.lines.remove(line)
-
                 if enemy == Rival.AIeasy or enemy == Rival.AInormal:
                     neigbour.add(curent_point)
                     step_enemy.insert(0, curent_point)
@@ -584,7 +500,6 @@ class Game:
                         self.curent_point_red = curent_point
                     else:
                         self.curent_point_blue = curent_point              
-
                 for ((black_x, black_y), color_early) in line[2]: # черные точки
                     self.field[black_x][black_y] = color_early
                 if line[1] == Cell.BLUE: #цвет
@@ -594,7 +509,6 @@ class Game:
                 break
         if not find_line:
             self.repetitions.append(((x, y), color_undo_point, (), curent_point, count_poins))
-        
         try:
             if color_undo_point == Cell.RED:
                 self.last_red = self.cancellation[-2][0]
@@ -605,9 +519,7 @@ class Game:
                 self.last_red = None
             else:
                 self.last_blue = None
-
         self.undo_count += 1
-
         if enemy == Rival.AIrandom:
             return
         
@@ -627,8 +539,7 @@ class Game:
                     self.neigbour_red = set()
                 else:
                     self.curent_point_blue = curent_point
-                    self.neigbour_blue = set()
-            
+                    self.neigbour_blue = set()            
             if enemy == Rival.AInormal:
                 if color_undo_point == Cell.RED:                
                     self.count_red -= 1
@@ -637,8 +548,7 @@ class Game:
                 else:
                     self.count_blue -= 1
                     if self.count_blue <= 0:
-                        self.count_blue = count_poins - 1
-        
+                        self.count_blue = count_poins - 1     
         with contextlib.suppress(KeyError):
             neigbour_another.remove((x, y))
         with contextlib.suppress(ValueError):
@@ -664,7 +574,6 @@ class Game:
                     neigbour.remove(curent_point)
                 with contextlib.suppress(ValueError):
                     step_enemy.remove(curent_point)
-
             if color_undo_point == Cell.BLUE: #цвет
                 self.score_blue += line[3] # площадь
                 self.curent_point_blue = None
@@ -675,14 +584,11 @@ class Game:
                 self.neigbour_red = set()
             for ((black_x, black_y), _color) in line[2]: # черные точки
                 self.field[black_x][black_y] = Cell.BLACK
-                
         if color_undo_point == Cell.RED:
             self.last_red = (x, y)
         else:
             self.last_blue = (x, y)
-
         self.undo_count -= 1    
-        
         if enemy == Rival.AIrandom:
             return
         
@@ -765,12 +671,3 @@ class Geometry:
                 farthest_point_x = x
                 farthest_point_y = y
         return farthest_point_x, farthest_point_y
-
-    @staticmethod        
-    def get_middle_triangle(path):
-        sum_x = 0
-        sum_y = 0
-        for x, y in path:
-            sum_x += x
-            sum_y += y
-        return sum_x/len(path), sum_y/len(path)

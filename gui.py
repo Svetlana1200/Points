@@ -1,6 +1,4 @@
 from PyQt5 import QtWidgets, QtCore, QtGui, QtTest
-#import os
-#from enum import Enum
 from logic import Game
 from cell import Cell
 import contextlib
@@ -91,7 +89,7 @@ class StartGameWindowNotOnline(QtWidgets.QDialog):
     def set_size(self):
         def check(params):
             try:
-                size = tuple(map(int, params.split('x')))                
+                size = tuple(map(int, params.split('x')))   
                 if (size[0] <= 5 or size[1] <= 5 or size[0] * self.distance_between_points >
                           QtWidgets.QDesktopWidget()
                             .availableGeometry().height() - 200 or
@@ -258,7 +256,6 @@ class OnlineOrNotWindow(QtWidgets.QDialog):
         layout.addWidget(self._selector)
         layout.addLayout(self._inputs)
 
-        
         self._buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         self._buttons.accepted.connect(self.accept)
@@ -286,15 +283,14 @@ class OnlineOrNotWindow(QtWidgets.QDialog):
     def set_online(self):
         def check(params):
             parts = params.split('.')
-            if len(parts) != 4 or parts[0] != '192' or parts[1] != '168':# or params not in ips:
+            if len(parts) != 4 or parts[0] != '192' or parts[1] != '168':
                 QtWidgets.QMessageBox.critical(self, 'IP', 'Недопустимый ip!')
                 return
             for part in parts:
                 if len(part) == 0 or not 0 <= int(part) <= 255:
                     QtWidgets.QMessageBox.critical(self, 'IP', 'Недопустимый ip!')
                     return
-            return params
-            
+            return params            
 
         if self._online.isChecked():
             return check(self._inputs.itemAt(0).widget().text())
@@ -347,7 +343,6 @@ class Field(QtWidgets.QMainWindow):
         get_setting.triggered.connect(self.setting_game)
         setting.addAction(get_setting)
 
-
         if self.rival != (Rival.HUMAN, Rival.HUMAN) and Rival.HUMAN in self.rival:
             if self.high_scores is not None:
                 records = menubar.addMenu('&Records')
@@ -355,12 +350,10 @@ class Field(QtWidgets.QMainWindow):
                 open_r.triggered.connect(self.open_records)
                 records.addAction(open_r)
 
-            undo_and_redo = menubar.addMenu('&Undo/Redo')          
-            
+            undo_and_redo = menubar.addMenu('&Undo/Redo')
             undo = QtWidgets.QAction('Undo', self)
             undo.triggered.connect(self.undo)
             undo_and_redo.addAction(undo)
-
             redo = QtWidgets.QAction('Redo', self)
             redo.triggered.connect(self.redo)
             undo_and_redo.addAction(redo)
@@ -368,26 +361,29 @@ class Field(QtWidgets.QMainWindow):
         self.show()
     
     def undo(self):
-        if self.rival == (Rival.AIrandom, Rival.HUMAN) or self.rival == (Rival.HUMAN, Rival.AIrandom):    
+        sort_rival = Rival.sort_tuple(*self.rival)
+        if sort_rival == (Rival.HUMAN, Rival.AIrandom):    
             enemy = Rival.AIrandom
-        elif self.rival == (Rival.AIeasy, Rival.HUMAN) or self.rival == (Rival.HUMAN, Rival.AIeasy):    
+        elif sort_rival == (Rival.HUMAN, Rival.AIeasy):    
             enemy = Rival.AIeasy
-        elif self.rival == (Rival.AInormal, Rival.HUMAN) or self.rival == (Rival.HUMAN, Rival.AInormal):   
+        elif sort_rival == (Rival.HUMAN, Rival.AInormal):   
             enemy = Rival.AInormal
         with contextlib.suppress(IndexError):
             self.game.undo(enemy)
             try:
                 self.game.undo(enemy)
+                self.x, self.y = -1, -1
             except IndexError:
                 self.game.redo(enemy)
             self.update()
     
     def redo(self):
-        if self.rival == (Rival.AIrandom, Rival.HUMAN) or self.rival == (Rival.HUMAN, Rival.AIrandom):
+        sort_rival = Rival.sort_tuple(*self.rival)
+        if sort_rival == (Rival.HUMAN, Rival.AIrandom):
             enemy = Rival.AIrandom
-        elif self.rival == (Rival.AIeasy, Rival.HUMAN) or self.rival == (Rival.HUMAN, Rival.AIeasy):   
+        elif sort_rival == (Rival.HUMAN, Rival.AIeasy):   
             enemy = Rival.AIeasy
-        elif self.rival == (Rival.AInormal, Rival.HUMAN) or self.rival == (Rival.HUMAN, Rival.AInormal):    
+        elif sort_rival == (Rival.HUMAN, Rival.AInormal):    
             enemy = Rival.AInormal
         with contextlib.suppress(IndexError):
             self.game.redo(enemy)
@@ -395,31 +391,26 @@ class Field(QtWidgets.QMainWindow):
             self.update()
 
     def set_params_not_online(self):
-        self.name_win = {}
-        self.name_win["size"] = self.second_game_dialog.set_size()
-        self.name_win["first"] = self.second_game_dialog.set_players()[0]
-        self.name_win["second"] = self.second_game_dialog.set_players()[1]
-    
-    def set_params_create_server(self):
-        self.name_win = {}
-        size = self.second_game_dialog.set_size()
-        self.name_win["size"] = size
+        self.name_win = {
+            "size": self.second_game_dialog.set_size(),
+            "first": self.second_game_dialog.set_players()[0],
+            "second": self.second_game_dialog.set_players()[1]}
 
-        self.saving_for_online = {}
-        self.saving_for_online["color"] = self.second_game_dialog.set_color()
-        self.saving_for_online["ip"] = self.ip
-        self.saving_for_online["size"] = size
+    def set_params_create_server(self):
+        size = self.second_game_dialog.set_size()        
+        self.name_win = {"size": size}
+        self.saving_for_online = {
+            "color": self.second_game_dialog.set_color(),
+            "ip": self.ip,
+            "size": size}
 
     def set_params_set_params_connect_to_server(self):
-        self.saving_for_online = {}
-        self.saving_for_online["ip"] = self.ip
-        self.saving_for_online["color"] = Cell.RED
-        self.saving_for_online["size"] = "15x15"
+        self.saving_for_online = {"ip": self.ip, 
+                                  "color": Cell.RED,
+                                  "size": "15x15"}       
+        self.name_win = {"size": "15x15"}
         
-        self.name_win = {}        
-        self.name_win["size"] = "15x15"
-        
-    def set_onl(self):
+    def set_online_or_not_online(self):
         setting = self.new_game_dialog.set_online()
         if setting == "not online":
             self.second_game_dialog = StartGameWindowNotOnline(self) 
@@ -439,7 +430,7 @@ class Field(QtWidgets.QMainWindow):
     def setting_game(self):
         self.new_game_dialog = OnlineOrNotWindow(self)
         self.new_game_dialog.setModal(True) 
-        self.new_game_dialog.accepted.connect(self.set_onl) ####set_onl переименовать (типо онлайность)
+        self.new_game_dialog.accepted.connect(self.set_online_or_not_online)
         self.new_game_dialog.rejected.connect(self.new_game_dialog.close) 
     
     def open_records(self):
@@ -537,7 +528,7 @@ class Field(QtWidgets.QMainWindow):
             turn = "Blue"
             color = QtGui.QColor(0, 0, 255)
         
-        if (Rival.AIeasy in self.rival or Rival.AIrandom in self.rival or Rival.AInormal in self.rival) and Rival.HUMAN in self.rival:
+        if set(self.rival).intersection({Rival.AIrandom, Rival.AIeasy, Rival.AInormal}) and Rival.HUMAN in self.rival:
             if self.high_scores:
                 name_and_score = '{} {}'.format(*self.high_scores[0])
             else:

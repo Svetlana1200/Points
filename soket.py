@@ -8,7 +8,6 @@ class Socket:
         self.adress = adress
         if self.adress[0] == "":
             print("sock")
-            self.conn = None
             self.sock = socket.socket()
             self.sock.bind(adress)
             self.sock.listen(1)
@@ -51,6 +50,8 @@ class Socket:
             self.conn.send(b'EXIT')
         elif coordinats == 'CHANGING_RIVAL':
             self.conn.send(b'CHANGING_RIVAL')
+        elif coordinats == 'RESULTS':
+            self.conn.send(b'RESULTS')
         else:
             self.conn.send(bytes(coordinats))
 
@@ -62,6 +63,8 @@ class Socket:
                 return 'EXIT'
             elif data == b'CHANGING_RIVAL':
                 return 'CHANGING_RIVAL'
+            elif data == b'RESULTS':
+                return 'RESULTS'
             else:
                 return tuple(data)
         except socket.error:

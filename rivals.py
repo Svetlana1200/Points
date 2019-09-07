@@ -7,3 +7,9 @@ class Rival(Enum):
     AIeasy = 3
     AInormal = 4
     ONLINE = 5
+
+    @staticmethod
+    def sort_tuple(first, second):
+        if first.value < second.value:
+            return first, second
+        return second, first
