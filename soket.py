@@ -1,26 +1,25 @@
 import socket
 from cell import Cell
 
+
 class Socket:
     def __init__(self, adress):
         self.sock = None
         self.conn = None
         self.adress = adress
         if self.adress[0] == "":
-            print("sock")
             self.sock = socket.socket()
             self.sock.bind(adress)
             self.sock.listen(1)
-            print("sock finish")
+            print("create server")
         else:
-            print("conn")
             self.conn = socket.socket()
             self.conn.connect(adress)
-            print("conn finish")
-            
-    def accept(self):    
+            print("connect to server")
+
+    def accept(self):
         self.sock.setblocking(0)
-        try:      
+        try:
             self.conn, self.addr = self.sock.accept()
         except socket.error:
             return None
@@ -42,7 +41,7 @@ class Socket:
                 color = Cell.BLUE
         except socket.error:
             return None
-        else:           
+        else:
             return color, udata[1]
 
     def send(self, coordinats):

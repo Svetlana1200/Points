@@ -5,6 +5,7 @@ from rivals import Rival
 from cell import Cell
 import time
 
+
 class Game:
     LENGTH_ROUND = 10
     UNDO_COUNT = 5
@@ -38,14 +39,18 @@ class Game:
         self.last_red = None
         self.last_blue = None
 
-        self.undo_count  = 0
+        self.undo_count = 0
 
         for x in range(self.width):
             self.field.append([])
             for _y in range(self.height):
                 self.field[x].append(Cell.EMPTY)
 
-    def make_step(self, x, y, queue = None, curent_point = None, count_poins = None): # curent_point - какая точка окружается AI, count_poins - количество точек окружения normal
+    def make_step(self,
+                  x, y,
+                  queue=None,
+                  curent_point=None,
+                  count_poins=None):
         if not self.in_border(x, y):
             if queue is not None:
                 queue.put(False)
@@ -82,8 +87,9 @@ class Game:
                 else:
                     self.curent_point_red = None
                     self.neigbour_red = set()
-                jump_list = self.check_intersection_lines(copy.copy(best_path_and_squre[0]))
-                
+                jump_list = self.check_intersection_lines(
+                    copy.copy(best_path_and_squre[0]))
+
                 if best_path_and_squre[0] != jump_list:
                     square = self.count_square_wihtout_intersections(jump_list)
                     jump_list.append(jump_list[0])
@@ -93,11 +99,12 @@ class Game:
 
                 self.count_score(best_path_and_squre[0],
                                  best_path_and_squre[1])
-                black_points = self.make_black_some_points(best_path_and_squre[0])
+                black_points = self.make_black_some_points(
+                    best_path_and_squre[0])
                 self.lines.append(
                     (self._change_path_in_normal_size(best_path_and_squre[0]),
-                     self.turn, 
-                     black_points, 
+                     self.turn,
+                     black_points,
                      best_path_and_squre[1]))
                 print(self.lines[-1][0], self.lines[-1][1], self.lines[-1][3])
             if queue is not None:
@@ -161,35 +168,43 @@ class Game:
 
     def check_intersection_lines(self, path):
         def get_result_of_condition(index, first, second, third, forth):
-            if ( (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, -1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (1, 0) or
-             (second[0] - first[0], second[1] - first[1]) == (-1, 1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (0, -1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (-1, -1) and  (third[0] - second[0], third[1] - second[1]) == (0, 1) or
-             (second[0] - first[0], second[1] - first[1]) == (1, -1) and (forth[0] - third[0], forth[1] - third[1]) == (1, 1) and  (third[0] - second[0], third[1] - second[1]) == (-1, 0) ):
+            if ((second[0] - first[0], second[1] - first[1]),
+                (forth[0] - third[0], forth[1] - third[1]),
+                (third[0] - second[0], third[1] - second[1])) in [
+                    ((-1, -1), (-1, 1), (1, 0)),
+                    ((-1, -1), (1, -1), (0, 1)),
+                    ((1, 1), (-1, 1), (0, -1)),
+                    ((1, 1), (1, -1), (-1, 0)),
+                    ((-1, 1), (-1, -1), (1, 0)),
+                    ((-1, 1), (1, 1), (0, -1)),
+                    ((1, -1), (-1, -1), (0, 1)),
+                    ((1, -1), (1, 1), (-1, 0))
+                    ]:
                 path[index] = third
                 path[index + 1] = second
                 second, third = third, second
-            return second, third 
+            return second, third
 
         first, second, third, forth = path[0], path[1], path[2], path[3]
-        second, third  = get_result_of_condition(1, first, second, third, forth)
+        second, third = get_result_of_condition(1, first, second, third, forth)
 
         for ind in range(len(path[4:])):
             first, second, third, forth = second, third, forth, path[ind + 4]
-            second, third  = get_result_of_condition(ind + 2, first, second, third, forth)
+            second, third = get_result_of_condition(
+                ind + 2, first, second, third, forth)
 
         first, second, third, forth = second, third, forth, path[0]
-        second, third  = get_result_of_condition(-2, first, second, third, forth)
-        
+        second, third = get_result_of_condition(
+            -2, first, second, third, forth)
+
         first, second, third, forth = second, third, forth, path[1]
-        second, third  = get_result_of_condition(-1, first, second, third, forth)
-        
+        second, third = get_result_of_condition(
+            -1, first, second, third, forth)
+
         first, second, third, forth = second, third, forth, path[2]
-        second, third  = get_result_of_condition(0, first, second, third, forth)
-        
+        second, third = get_result_of_condition(
+            0, first, second, third, forth)
+
         return path
 
     def can_round(self, path):
@@ -237,7 +252,8 @@ class Game:
         changing_path = self._change_path_in_normal_size(present_path)
         for element in self.lines:
             path = element[0]
-            intersection = Geometry.get_intersection(path, changing_path, present_path)
+            intersection = Geometry.get_intersection(
+                path, changing_path, present_path)
             if intersection:
                 x_another = []
                 y_another = []
@@ -259,7 +275,7 @@ class Game:
                         yk = y - self.height
                     else:
                         yk = y
-                    change.append((xk, yk))                
+                    change.append((xk, yk))
                 squre -= Geometry.count_squre(change)
         return squre
 
@@ -293,10 +309,15 @@ class Game:
                     (has_point_smaller_size and
                     (Geometry.point_in_polygon(x - self.width, y, xp, yp) or
                      Geometry.point_in_polygon(x, y - self.height, xp, yp))) or
-                     (has_point_larger_size or has_point_smaller_size) and (Geometry.point_in_polygon(x - self.width, y - self.height, xp, yp) or
-                                                                             Geometry.point_in_polygon(x + self.width, y - self.height, xp, yp) or
-                                                                             Geometry.point_in_polygon(x - self.width, y + self.height, xp, yp) or
-                                                                             Geometry.point_in_polygon(x + self.width, y + self.height, xp, yp))):
+                    (has_point_larger_size or has_point_smaller_size) and
+                        (Geometry.point_in_polygon(
+                            x - self.width, y - self.height, xp, yp) or
+                         Geometry.point_in_polygon(
+                             x + self.width, y - self.height, xp, yp) or
+                         Geometry.point_in_polygon(
+                             x - self.width, y + self.height, xp, yp) or
+                         Geometry.point_in_polygon(
+                             x + self.width, y + self.height, xp, yp))):
                     black_points.append(((x, y), self.field[x][y]))
                     self.field[x][y] = Cell.BLACK
                     with contextlib.suppress(ValueError):
@@ -377,26 +398,34 @@ class Game:
         else:
             curent_point = self.curent_point_red
             neigbour = self.neigbour_red
-            steps_enemy = self.step_enemy_red        
+            steps_enemy = self.step_enemy_red
         if self.turn == Cell.RED:
             self.count_red += 1
         else:
             self.count_blue += 1
         while True:
-            if (curent_point is None 
-                or curent_point not in steps_enemy
-                or ((self.count_blue >= Game.LENGTH_FOR_API + 1 and self.turn == Cell.BLUE) 
-                     or (self.count_red >= Game.LENGTH_FOR_API + 1 and self.turn == Cell.RED)) 
-                     and ai == Rival.AInormal): # меняем curent_point
-                if neigbour and ((ai == Rival.AInormal and curent_point is None) or ai == Rival.AIeasy):
+            if (curent_point is None or
+                curent_point not in steps_enemy or
+                ((self.count_blue >= Game.LENGTH_FOR_API + 1 and
+                    self.turn == Cell.BLUE) or
+                 (self.count_red >= Game.LENGTH_FOR_API + 1 and
+                    self.turn == Cell.RED)) and
+                    ai == Rival.AInormal):  # меняем curent_point
+                if (neigbour and
+                    ((ai == Rival.AInormal and curent_point is None) or
+                     ai == Rival.AIeasy)):
                     curent_point = neigbour.pop()
                     neigbour.add(curent_point)
-                elif ((self.count_blue >= Game.LENGTH_FOR_API + 1 and self.turn == Cell.BLUE
-                       or self.count_red >= Game.LENGTH_FOR_API + 1 and self.turn == Cell.RED)
-                       and curent_point is not None
-                       and ai == Rival.AInormal):
-                    if steps_enemy:                  
-                        curent_point = Geometry.get_farthest_point(steps_enemy, *curent_point, self.width, self.height)
+                elif ((self.count_blue >= Game.LENGTH_FOR_API + 1 and
+                        self.turn == Cell.BLUE or
+                        self.count_red >= Game.LENGTH_FOR_API + 1 and
+                        self.turn == Cell.RED)
+                        and curent_point is not None
+                        and ai == Rival.AInormal):
+                    if steps_enemy:
+                        curent_point = Geometry.get_farthest_point(
+                            steps_enemy, *curent_point,
+                            self.width, self.height)
                         neigbour = set()
                         neigbour.add(curent_point)
                         if self.turn == Cell.RED:
@@ -431,14 +460,16 @@ class Game:
                     yk = self.height - 1
                 else:
                     yk = curent_point[1] + j
-                
+
                 if self.turn == Cell.RED:
                     count_poins = self.count_red
                 else:
                     count_poins = self.count_blue
                 count_lines = len(self.lines)
-                if self.make_step(xk, yk, curent_point = curent_point, count_poins = count_poins):
-                    print("BLUE: ", self.count_blue, ", RED: ", self.count_red) 
+                if self.make_step(xk, yk,
+                                  curent_point=curent_point,
+                                  count_poins=count_poins):
+                    print("BLUE: ", self.count_blue, ", RED: ", self.count_red)
                     if count_lines == len(self.lines):
                         if self.turn == Cell.BLUE:
                             self.curent_point_blue = curent_point
@@ -447,7 +478,7 @@ class Game:
                         else:
                             self.curent_point_red = curent_point
                             self.neigbour_red = neigbour
-                            self.step_enemy_red = steps_enemy       
+                            self.step_enemy_red = steps_enemy
                     elif ai == Rival.AInormal:
                         if self.turn == Cell.BLUE:
                             self.count_blue = 0
@@ -456,9 +487,11 @@ class Game:
                     queue.put(self)
                     return True
 
-                if ((self.turn == Cell.BLUE and self.field[xk][yk] == Cell.RED)
-                     or (self.turn == Cell.RED and self.field[xk][yk] == Cell.BLUE)
-                     and ((xk, yk)) in steps_enemy):
+                if ((self.turn == Cell.BLUE and
+                     self.field[xk][yk] == Cell.RED) or
+                        (self.turn == Cell.RED and
+                         self.field[xk][yk] == Cell.BLUE) and
+                        ((xk, yk)) in steps_enemy):
                     neigbour.add((xk, yk))
 
             with contextlib.suppress(KeyError):
@@ -466,12 +499,14 @@ class Game:
             with contextlib.suppress(ValueError):
                 steps_enemy.remove(curent_point)
             curent_point = None
-  
+
     def _get_neigbours_steps_enemys(self, color_undo_point):
         if color_undo_point == Cell.RED:
-            return self.neigbour_red, self.step_enemy_red, self.neigbour_blue,  self.step_enemy_blue
+            return (self.neigbour_red, self.step_enemy_red,
+                    self.neigbour_blue,  self.step_enemy_blue)
         else:
-            return self.neigbour_blue, self.step_enemy_blue, self.neigbour_red, self.step_enemy_red
+            return (self.neigbour_blue, self.step_enemy_blue,
+                    self.neigbour_red, self.step_enemy_red)
 
     def undo(self, enemy):
         if self.undo_count > Game.UNDO_COUNT * 2:
@@ -479,19 +514,26 @@ class Game:
         (x, y), curent_point, count_poins = self.cancellation.pop()
         print("UNDO ", x, y)
         if enemy == Rival.AInormal and len(self.cancellation) > 0:
-            (next_x, next_y), _next_curent_point, _next_count_poins = self.cancellation[-1]
+            ((next_x, next_y),
+             _next_curent_point,
+             _next_count_poins) = self.cancellation[-1]
         else:
             next_x, next_y = None, None
         self.possible_steps.append((x, y))
         find_line = False
         color_undo_point = self.field[x][y]
         self.field[x][y] = Cell.EMPTY
-        neigbour, step_enemy, neigbour_another, step_enemy_another =  self._get_neigbours_steps_enemys(color_undo_point)
+        (neigbour, step_enemy,
+         neigbour_another,
+         step_enemy_another) = self._get_neigbours_steps_enemys(
+             color_undo_point)
 
         for line in self.lines:
             if (x, y) in line[0]:
                 find_line = True
-                self.repetitions.append(((x, y), color_undo_point, line, curent_point, count_poins))
+                self.repetitions.append(
+                    ((x, y), color_undo_point, line,
+                     curent_point, count_poins))
                 self.lines.remove(line)
                 if enemy == Rival.AIeasy or enemy == Rival.AInormal:
                     neigbour.add(curent_point)
@@ -499,16 +541,17 @@ class Game:
                     if color_undo_point == Cell.RED:
                         self.curent_point_red = curent_point
                     else:
-                        self.curent_point_blue = curent_point              
-                for ((black_x, black_y), color_early) in line[2]: # черные точки
+                        self.curent_point_blue = curent_point
+                for ((black_x, black_y), color_early) in line[2]:  # черные т.
                     self.field[black_x][black_y] = color_early
-                if line[1] == Cell.BLUE: #цвет
-                    self.score_blue -= line[3] # площадь
+                if line[1] == Cell.BLUE:  # цвет
+                    self.score_blue -= line[3]  # площадь
                 else:
                     self.score_red -= line[3]
                 break
         if not find_line:
-            self.repetitions.append(((x, y), color_undo_point, (), curent_point, count_poins))
+            self.repetitions.append(
+                ((x, y), color_undo_point, (), curent_point, count_poins))
         try:
             if color_undo_point == Cell.RED:
                 self.last_red = self.cancellation[-2][0]
@@ -522,9 +565,11 @@ class Game:
         self.undo_count += 1
         if enemy == Rival.AIrandom:
             return
-        
+
         if curent_point is not None:
-            if enemy == Rival.AIeasy or enemy == Rival.AInormal and curent_point == (next_x, next_y):
+            if (enemy == Rival.AIeasy or
+                    enemy == Rival.AInormal and
+                    curent_point == (next_x, next_y)):
                 if color_undo_point == Cell.RED:
                     self.curent_point_red = None
                     self.neigbour_red = set()
@@ -539,33 +584,39 @@ class Game:
                     self.neigbour_red = set()
                 else:
                     self.curent_point_blue = curent_point
-                    self.neigbour_blue = set()            
+                    self.neigbour_blue = set()
             if enemy == Rival.AInormal:
-                if color_undo_point == Cell.RED:                
+                if color_undo_point == Cell.RED:
                     self.count_red -= 1
                     if self.count_red <= 0:
                         self.count_red = count_poins - 1
                 else:
                     self.count_blue -= 1
                     if self.count_blue <= 0:
-                        self.count_blue = count_poins - 1     
+                        self.count_blue = count_poins - 1
         with contextlib.suppress(KeyError):
             neigbour_another.remove((x, y))
         with contextlib.suppress(ValueError):
             step_enemy_another.remove((x, y))
-        print("BLUE: ", self.count_blue, ", RED: ", self.count_red)             
+        print("BLUE: ", self.count_blue, ", RED: ", self.count_red)
 
     def redo(self, enemy):
-        (x, y), color_undo_point, line, curent_point, count_poins = self.repetitions.pop()
+        ((x, y), color_undo_point,
+         line, curent_point, count_poins) = self.repetitions.pop()
         print("REDO ", x, y)
         self.cancellation.append(((x, y), curent_point, count_poins))
         if enemy == Rival.AInormal and len(self.repetitions) > 0:
-            (next_x, next_y), _next_color_undo_point, _next_line, _next_curent_point, _next_count_poins = self.repetitions[-1]
+            ((next_x, next_y), _next_color_undo_point,
+             _next_line, _next_curent_point,
+             _next_count_poins) = self.repetitions[-1]
         else:
             next_x, next_y = None, None
         self.possible_steps.remove((x, y))
         self.field[x][y] = color_undo_point
-        neigbour, step_enemy, neigbour_another, step_enemy_another = self._get_neigbours_steps_enemys(color_undo_point)
+        (neigbour, step_enemy,
+         neigbour_another,
+         step_enemy_another) = self._get_neigbours_steps_enemys(
+             color_undo_point)
 
         if len(line) > 0:
             self.lines.append(line)
@@ -574,26 +625,28 @@ class Game:
                     neigbour.remove(curent_point)
                 with contextlib.suppress(ValueError):
                     step_enemy.remove(curent_point)
-            if color_undo_point == Cell.BLUE: #цвет
-                self.score_blue += line[3] # площадь
+            if color_undo_point == Cell.BLUE:  # цвет
+                self.score_blue += line[3]  # площадь
                 self.curent_point_blue = None
                 self.neigbour_blue = set()
             else:
                 self.score_red += line[3]
                 self.curent_point_red = None
                 self.neigbour_red = set()
-            for ((black_x, black_y), _color) in line[2]: # черные точки
+            for ((black_x, black_y), _color) in line[2]:  # черные точки
                 self.field[black_x][black_y] = Cell.BLACK
         if color_undo_point == Cell.RED:
             self.last_red = (x, y)
         else:
             self.last_blue = (x, y)
-        self.undo_count -= 1    
+        self.undo_count -= 1
         if enemy == Rival.AIrandom:
             return
-        
+
         if curent_point is not None:
-            if enemy == Rival.AIeasy or enemy == Rival.AInormal and curent_point == (next_x, next_y):
+            if (enemy == Rival.AIeasy or
+                    enemy == Rival.AInormal and
+                    curent_point == (next_x, next_y)):
                 if color_undo_point == Cell.RED:
                     self.curent_point_red = curent_point
                 else:
@@ -611,7 +664,7 @@ class Game:
             neigbour_another.add((x, y))
         with contextlib.suppress(ValueError):
             step_enemy_another.append((x, y))
-        print("BLUE: ", self.count_blue, ", RED: ", self.count_red)      
+        print("BLUE: ", self.count_blue, ", RED: ", self.count_red)
 
 
 class Geometry:
@@ -660,11 +713,15 @@ class Geometry:
         farthest_point_y = curent_y
         max_dist = 0
         for x, y in list_points:
-            dist = min (
-                ((abs(x - curent_x))**2 + (abs(y - curent_y))**2)**(1/2), 
-                ((width - abs(x - curent_x))**2 + (abs(y - curent_y))**2)**(1/2), 
-                ((abs(x - curent_x))**2 + (height - abs(y - curent_y))**2)**(1/2),
-                ((width - abs(x - curent_x))**2 + (height - abs(y - curent_y))**2)**(1/2)
+            dist = min(
+                ((abs(x - curent_x))**2 +
+                 (abs(y - curent_y))**2)**(1/2),
+                ((width - abs(x - curent_x))**2 +
+                 (abs(y - curent_y))**2)**(1/2),
+                ((abs(x - curent_x))**2 +
+                 (height - abs(y - curent_y))**2)**(1/2),
+                ((width - abs(x - curent_x))**2 +
+                 (height - abs(y - curent_y))**2)**(1/2)
                 )
             if dist > max_dist:
                 max_dist = dist

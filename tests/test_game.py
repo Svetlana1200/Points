@@ -2,14 +2,15 @@ import copy
 import os
 import sys
 import unittest
+import time
+import contextlib
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              os.path.pardir))
 from logic import Game, Geometry
 from cell import Cell
-import time
 from rivals import Rival
-import contextlib
+
 
 class GameTest(unittest.TestCase):
     def test_init(self):
@@ -233,7 +234,8 @@ class GameTest(unittest.TestCase):
         self.assertTrue(game.score_red == 2.0)
         self.assertListEqual(
             game.lines,
-            [(([(2, 3), (1, 2), (2, 1), (3, 2), (2, 3)], Cell.RED, [((2, 2), Cell.BLUE)], 2.0))])
+            [(([(2, 3), (1, 2), (2, 1), (3, 2), (2, 3)],
+             Cell.RED, [((2, 2), Cell.BLUE)], 2.0))])
 
     def test_put_point_on_not_empty(self):
         game = Game(5, 5)
@@ -256,14 +258,17 @@ class GameTest(unittest.TestCase):
         game.make_step(1, 2)
         self.assertEqual(
             game.lines,
-            [(([(1, 2), (0, 3), (1, 4), (2, 3), (1, 2)], Cell.RED, [((1, 3), Cell.BLUE)], 2.0))])
+            [(([(1, 2), (0, 3), (1, 4), (2, 3), (1, 2)],
+              Cell.RED, [((1, 3), Cell.BLUE)], 2.0))])
         game.make_step(3, 2)
         game.make_step(4, 3)
         game.make_step(2, 1)
         self.assertEqual(
             game.lines,
-            [(([(1, 2), (0, 3), (1, 4), (2, 3), (1, 2)], Cell.RED, [((1, 3), Cell.BLUE)], 2.0)),
-             (([(2, 1), (1, 2), (2, 3), (3, 2), (2, 1)], Cell.RED, [((2, 2), Cell.BLUE)], 2.0))])
+            [(([(1, 2), (0, 3), (1, 4), (2, 3), (1, 2)],
+              Cell.RED, [((1, 3), Cell.BLUE)], 2.0)),
+             (([(2, 1), (1, 2), (2, 3), (3, 2), (2, 1)],
+              Cell.RED, [((2, 2), Cell.BLUE)], 2.0))])
 
         game.change_turn_player()
         self.assertEqual(game.turn, Cell.BLUE)
@@ -283,10 +288,14 @@ class GameTest(unittest.TestCase):
         game.make_step(8, 0)
         self.assertEqual(
             game.lines,
-            [(([(1, 2), (0, 3), (1, 4), (2, 3), (1, 2)], Cell.RED, [((1, 3), Cell.BLUE)], 2.0)),
-             (([(2, 1), (1, 2), (2, 3), (3, 2), (2, 1)], Cell.RED, [((2, 2), Cell.BLUE)], 2.0)),
+            [(([(1, 2), (0, 3), (1, 4), (2, 3), (1, 2)],
+                Cell.RED, [((1, 3), Cell.BLUE)], 2.0)),
+             (([(2, 1), (1, 2), (2, 3), (3, 2), (2, 1)],
+               Cell.RED, [((2, 2), Cell.BLUE)], 2.0)),
              (([(8, 0), (7, 9), (6, 8), (7, 7), (8, 7),
-               (9, 8), (9, 9), (8, 0)], Cell.BLUE, [((7, 8), Cell.RED), ((8, 8), Cell.RED), ((8, 9), Cell.RED)], 5.5))])
+               (9, 8), (9, 9), (8, 0)],
+               Cell.BLUE, [((7, 8), Cell.RED),
+               ((8, 8), Cell.RED), ((8, 9), Cell.RED)], 5.5))])
         self.assertEqual(game.score_red, 4.0)
         self.assertEqual(game.score_blue, 5.5)
         self.assertEqual(game.get_winner(), Cell.BLUE)
@@ -318,10 +327,12 @@ class GameTest(unittest.TestCase):
         game = Game(4, 4)
         list_points = [(0, 0), (1, 0), (2, 1), (1, 1), (2, 0), (3, 0)]
         change = game.check_intersection_lines(list_points)
-        self.assertListEqual(change, [(0, 0), (1, 0), (1, 1), (2, 1), (2, 0), (3, 0)])
+        self.assertListEqual(
+            change, [(0, 0), (1, 0), (1, 1), (2, 1), (2, 0), (3, 0)])
         list_points = [(0, 0), (1, 0), (2, 1), (2, 0), (1, 1), (0, 1)]
         change = game.check_intersection_lines(list_points)
-        self.assertListEqual(change, [(0, 0), (1, 0), (2, 0), (2, 1), (1, 1), (0, 1)])
+        self.assertListEqual(
+            change, [(0, 0), (1, 0), (2, 0), (2, 1), (1, 1), (0, 1)])
 
     def test_undo_redo(self):
         game = Game(2, 3)
@@ -346,7 +357,7 @@ class GameTest(unittest.TestCase):
                     game.redo(enemy)
         for i in range(game.width):
             for j in range(game.height):
-                if i != 0 or j != 0:                    
+                if i != 0 or j != 0:
                     self.assertEqual(game.field[i][j], Cell.EMPTY)
         for _i in range(4):
             with contextlib.suppress(IndexError):
@@ -354,12 +365,12 @@ class GameTest(unittest.TestCase):
                 game.redo(enemy)
         for i in range(game.width):
             for j in range(game.height):
-                if (i, j) in [(0, 0), (0, 1), (0, 2)]:             
+                if (i, j) in [(0, 0), (0, 1), (0, 2)]:
                     self.assertEqual(game.field[i][j], Cell.RED)
-                elif (i, j) in [(1, 1), (1, 0), (1, 2)]:             
+                elif (i, j) in [(1, 1), (1, 0), (1, 2)]:
                     self.assertEqual(game.field[i][j], Cell.BLUE)
                 else:
-                    self.assertEqual(game.field[i][j], Cell.EMPTY)      
+                    self.assertEqual(game.field[i][j], Cell.EMPTY)
 
 
 if __name__ == '__main__':
