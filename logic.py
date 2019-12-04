@@ -4,7 +4,7 @@ import contextlib
 from rivals import Rival
 from cell import Cell
 import time
-
+import sys
 
 class Game:
     LENGTH_ROUND = 10
@@ -54,6 +54,7 @@ class Game:
         if not self.in_border(x, y):
             if queue is not None:
                 queue.put(False)
+                #print(queue)
             return False
         if self.field[x][y] == Cell.EMPTY:
             self.field[x][y] = self.turn
@@ -109,9 +110,11 @@ class Game:
                 print(self.lines[-1][0], self.lines[-1][1], self.lines[-1][3])
             if queue is not None:
                 queue.put(self)
+                #print(queue)
             return True
         if queue is not None:
             queue.put(False)
+            #print(queue)
         return False
 
     def check_neighboring_points(self, statr_x,
@@ -167,10 +170,10 @@ class Game:
         return best_path, best_square
 
     def check_intersection_lines(self, path):
-        def get_result_of_condition(index, first, second, third, forth):
-            if ((second[0] - first[0], second[1] - first[1]),
-                (forth[0] - third[0], forth[1] - third[1]),
-                (third[0] - second[0], third[1] - second[1])) in [
+        def get_result_of_condition(index, p1, p2, p3, p4):
+            if ((p2[0] - p1[0], p2[1] - p1[1]),
+                (p4[0] - p3[0], p4[1] - p3[1]),
+                (p3[0] - p2[0], p3[1] - p2[1])) in [
                     ((-1, -1), (-1, 1), (1, 0)),
                     ((-1, -1), (1, -1), (0, 1)),
                     ((1, 1), (-1, 1), (0, -1)),
@@ -180,30 +183,30 @@ class Game:
                     ((1, -1), (-1, -1), (0, 1)),
                     ((1, -1), (1, 1), (-1, 0))
                     ]:
-                path[index] = third
-                path[index + 1] = second
-                second, third = third, second
-            return second, third
+                path[index] = p3
+                path[index + 1] = p2
+                p2, p3 = p3, p2
+            return p2, p3
 
-        first, second, third, forth = path[0], path[1], path[2], path[3]
-        second, third = get_result_of_condition(1, first, second, third, forth)
+        p1, p2, p3, p4 = path[0], path[1], path[2], path[3]
+        p2, p3 = get_result_of_condition(1, p1, p2, p3, p4)
 
         for ind in range(len(path[4:])):
-            first, second, third, forth = second, third, forth, path[ind + 4]
-            second, third = get_result_of_condition(
-                ind + 2, first, second, third, forth)
+            p1, p2, p3, p4 = p2, p3, p4, path[ind + 4]
+            p2, p3 = get_result_of_condition(
+                ind + 2, p1, p2, p3, p4)
 
-        first, second, third, forth = second, third, forth, path[0]
-        second, third = get_result_of_condition(
-            -2, first, second, third, forth)
+        p1, p2, p3, p4 = p2, p3, p4, path[0]
+        p2, p3 = get_result_of_condition(
+            -2, p1, p2, p3, p4)
 
-        first, second, third, forth = second, third, forth, path[1]
-        second, third = get_result_of_condition(
-            -1, first, second, third, forth)
+        p1, p2, p3, p4 = p2, p3, p4, path[1]
+        p2, p3 = get_result_of_condition(
+            -1, p1, p2, p3, p4)
 
-        first, second, third, forth = second, third, forth, path[2]
-        second, third = get_result_of_condition(
-            0, first, second, third, forth)
+        p1, p2, p3, p4 = p2, p3, p4, path[2]
+        p2, p3 = get_result_of_condition(
+            0, p1, p2, p3, p4)
 
         return path
 
@@ -385,120 +388,6 @@ class Game:
 
     def get_possible_step(self):
         return [(i, j) for i in range(self.width) for j in range(self.height)]
-
-    def make_easy_or_normal_step(self, ai, queue):
-        if ai != Rival.AIeasy and ai != Rival.AInormal:
-            print("Ошибка. Этот метод только для AIeasy и AInormal")
-        directions = [(-1, 0), (0, 1), (1, 0), (0, -1),
-                      (-1, -1), (-1, 1), (1, 1), (1, -1)]
-        if self.turn == Cell.BLUE:
-            curent_point = self.curent_point_blue
-            neigbour = self.neigbour_blue
-            steps_enemy = self.step_enemy_blue
-        else:
-            curent_point = self.curent_point_red
-            neigbour = self.neigbour_red
-            steps_enemy = self.step_enemy_red
-        if self.turn == Cell.RED:
-            self.count_red += 1
-        else:
-            self.count_blue += 1
-        while True:
-            if (curent_point is None or
-                curent_point not in steps_enemy or
-                ((self.count_blue >= Game.LENGTH_FOR_API + 1 and
-                    self.turn == Cell.BLUE) or
-                 (self.count_red >= Game.LENGTH_FOR_API + 1 and
-                    self.turn == Cell.RED)) and
-                    ai == Rival.AInormal):  # меняем curent_point
-                if (neigbour and
-                    ((ai == Rival.AInormal and curent_point is None) or
-                     ai == Rival.AIeasy)):
-                    curent_point = neigbour.pop()
-                    neigbour.add(curent_point)
-                elif ((self.count_blue >= Game.LENGTH_FOR_API + 1 and
-                        self.turn == Cell.BLUE or
-                        self.count_red >= Game.LENGTH_FOR_API + 1 and
-                        self.turn == Cell.RED)
-                        and curent_point is not None
-                        and ai == Rival.AInormal):
-                    if steps_enemy:
-                        curent_point = Geometry.get_farthest_point(
-                            steps_enemy, *curent_point,
-                            self.width, self.height)
-                        neigbour = set()
-                        neigbour.add(curent_point)
-                        if self.turn == Cell.RED:
-                            self.count_red = 1
-                        else:
-                            self.count_blue = 1
-                    else:
-                        queue.put(False)
-                        return False
-                else:
-                    if steps_enemy:
-                        curent_point = steps_enemy[0]
-                        neigbour = set()
-                        neigbour.add(curent_point)
-                        if self.turn == Cell.RED:
-                            self.count_red = 1
-                        else:
-                            self.count_blue = 1
-                    else:
-                        queue.put(False)
-                        return False
-            for i, j in directions:
-                if curent_point[0] + i >= self.width:
-                    xk = curent_point[0] + i - self.width
-                elif curent_point[0] + i == -1:
-                    xk = self.width - 1
-                else:
-                    xk = curent_point[0] + i
-                if curent_point[1] + j >= self.height:
-                    yk = curent_point[1] + j - self.height
-                elif curent_point[1] + j == -1:
-                    yk = self.height - 1
-                else:
-                    yk = curent_point[1] + j
-
-                if self.turn == Cell.RED:
-                    count_poins = self.count_red
-                else:
-                    count_poins = self.count_blue
-                count_lines = len(self.lines)
-                if self.make_step(xk, yk,
-                                  curent_point=curent_point,
-                                  count_poins=count_poins):
-                    print("BLUE: ", self.count_blue, ", RED: ", self.count_red)
-                    if count_lines == len(self.lines):
-                        if self.turn == Cell.BLUE:
-                            self.curent_point_blue = curent_point
-                            self.neigbour_blue = neigbour
-                            self.step_enemy_blue = steps_enemy
-                        else:
-                            self.curent_point_red = curent_point
-                            self.neigbour_red = neigbour
-                            self.step_enemy_red = steps_enemy
-                    elif ai == Rival.AInormal:
-                        if self.turn == Cell.BLUE:
-                            self.count_blue = 0
-                        else:
-                            self.count_red = 0
-                    queue.put(self)
-                    return True
-
-                if ((self.turn == Cell.BLUE and
-                     self.field[xk][yk] == Cell.RED) or
-                        (self.turn == Cell.RED and
-                         self.field[xk][yk] == Cell.BLUE) and
-                        ((xk, yk)) in steps_enemy):
-                    neigbour.add((xk, yk))
-
-            with contextlib.suppress(KeyError):
-                neigbour.remove(curent_point)
-            with contextlib.suppress(ValueError):
-                steps_enemy.remove(curent_point)
-            curent_point = None
 
     def _get_neigbours_steps_enemys(self, color_undo_point):
         if color_undo_point == Cell.RED:

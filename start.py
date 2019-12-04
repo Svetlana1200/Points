@@ -9,7 +9,7 @@ from gui import Field, RecordsWin, Rival
 from soket import Socket
 import contextlib
 import multiprocessing as mp
-from players import AIrandom, AIeasy, AInormal, HUMAN, ONLINE
+from players import AIrandom, AIeasy, AInormal, HUMAN, ONLINE, AI
 
 
 class Start:
@@ -21,7 +21,6 @@ class Start:
         game = Game(20, 20)
         high_scores = Start.get_high_scores(game)
         rival = Rival.HUMAN, Rival.HUMAN
-        
         field = Field(game, high_scores, rival)
         is_first = True
         game.possible_steps = game.get_possible_step()
@@ -30,18 +29,14 @@ class Start:
                 game.process()
             field.update()
             is_first = False
-            if (rival[0] == Rival.AIrandom and game.turn == Cell.BLUE or
-                    rival[1] == Rival.AIrandom and game.turn == Cell.RED):
-                field, game = Start.make_right_random_move_in_another_process(
-                       field, game)
-            elif (rival[0] == Rival.AIeasy and game.turn == Cell.BLUE or
-                  rival[1] == Rival.AIeasy and game.turn == Cell.RED):
-                field, game = (Start.make_right_smart_move_in_another_process(
-                    field, game, game.make_easy_or_normal_step, Rival.AIeasy))
-            elif (rival[0] == Rival.AInormal and game.turn == Cell.BLUE or
-                  rival[1] == Rival.AInormal and game.turn == Cell.RED):
-                field, game = Start.make_right_smart_move_in_another_process(
-                    field, game, game.make_easy_or_normal_step, Rival.AInormal)
+
+            if isinstance(field.rival_obj[0], AI) and game.turn == Cell.BLUE:
+                field, game = Start.make_move_in_another_process(
+                    field, game, field.rival_obj[0])
+            elif isinstance(field.rival_obj[1], AI) and game.turn == Cell.RED:
+                field, game = Start.make_move_in_another_process(
+                    field, game, field.rival_obj[1])
+
             elif rival == (Rival.ONLINE, Rival.ONLINE):
                 if game.turn == field.saving_for_online["color"]:
                     field.x, field.y = -1, -1
@@ -128,15 +123,9 @@ class Start:
                 field.winner = game.get_winner()
                 field.update()
 
-
-                if ("AI" in {field.rival_obj[0].__class__.__bases__[0].__name__,
-                        field.rival_obj[1].__class__.__bases__[0].__name__} and Rival.HUMAN in rival and
+                if ((isinstance(field.rival_obj[0], AI) or isinstance(field.rival_obj[1], AI)) and
+                        Rival.HUMAN in rival and
                         field.high_scores is not None):
-                    """if (set(rival).intersection({
-                        Rival.AIrandom, Rival.AIeasy, Rival.AInormal}) and
-                            Rival.HUMAN in rival and
-                            field.high_scores is not None):"""
-
                     stat = Start.make_stat(game, field.high_scores, rival)
                     _records = RecordsWin(stat)
                 while ((field.name_win is None or
@@ -244,34 +233,24 @@ class Start:
                 made_step, coordinats)
 
     @staticmethod
-    def make_right_smart_move_in_another_process(field, game, function, ai):
+    def make_move_in_another_process(field, game, ai):
         q = mp.Queue()
-        p = mp.Process(target=function, args=(ai, q))
+        p = mp.Process(target=ai.make_step, args=(game, q))
         p.start()
         while q.empty():
             QtCore.QCoreApplication.processEvents()
         element = q.get()
         if element:
-            field.game = game = element
+            field.game = game = element 
         else:
-            field, game = (
-                Start.make_right_random_move_in_another_process(field, game))
+            q = mp.Queue()
+            p = mp.Process(target=AIrandom().make_step, args=(game, q))
+            p.start()
+            while q.empty():
+                QtCore.QCoreApplication.processEvents()
+            field.game = game = q.get()
         return field, game
 
-    @staticmethod
-    def make_right_random_move_in_another_process(field,
-                                                  game,
-                                                  coordinats=None):
-        if coordinats is None:
-            coordinats = game.get_random_step()
-        q = mp.Queue()
-        p = mp.Process(target=game.make_step,
-                       args=(*coordinats, q))
-        p.start()
-        while q.empty():
-            QtCore.QCoreApplication.processEvents()
-        field.game = game = q.get()
-        return field, game
 
     @staticmethod
     def change_rival_field_game(game, field):
@@ -285,7 +264,7 @@ class Start:
             size = field.saving_for_online["size"]
             rival = (Rival.ONLINE, Rival.ONLINE)
         high_scores = Start.get_high_scores(game)
-        
+
         field = Field(game, high_scores, rival)
         if rival == (Rival.ONLINE, Rival.ONLINE):
             field.saving_for_online = {
