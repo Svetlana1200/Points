@@ -280,6 +280,7 @@ class Field(QtWidgets.QMainWindow):
 
         self.waiting = ""
         self.rival_obj = self.create_rival_obj()
+        self.undo_redo_step = False
 
         self.initUI()
 
@@ -324,29 +325,27 @@ class Field(QtWidgets.QMainWindow):
 
     def undo(self):
         sort_rival_obj = players.sort(*self.rival_obj)
-        sort_rival = Rival.sort_tuple(*self.rival)
         if (isinstance(sort_rival_obj[0], AI)
                 and type(sort_rival_obj[1]) is HUMAN):
-            enemy = sort_rival[0]
+            enemy = sort_rival_obj[0]
             with contextlib.suppress(IndexError):
-                self.game.undo(enemy)
-                try:
-                    self.game.undo(enemy)
-                    self.x, self.y = -1, -1
-                except IndexError:
-                    self.game.redo(enemy)
+                enemy.undo_reaction(self.game)
+                self.x, self.y = -1, -1
                 self.update()
+                self.game.change_turn_player()
+                self.undo_redo_step = True
+
 
     def redo(self):
         sort_rival_obj = players.sort(*self.rival_obj)
-        sort_rival = Rival.sort_tuple(*self.rival)
         if (isinstance(sort_rival_obj[0], AI)
                 and type(sort_rival_obj[1]) is HUMAN):
-            enemy = sort_rival[0]
+            enemy = sort_rival_obj[0]
         with contextlib.suppress(IndexError):
-            self.game.redo(enemy)
-            self.game.redo(enemy)
+            enemy.redo_reaction(self.game)
             self.update()
+            self.game.change_turn_player()
+            self.undo_redo_step = True
 
     def set_params_not_online(self):
         self.name_win = {

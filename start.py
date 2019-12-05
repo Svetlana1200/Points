@@ -24,91 +24,23 @@ class Start:
         field = Field(game, high_scores, rival)
         is_first = True
         game.possible_steps = game.get_possible_step()
+        
         while not field.exit:
             if not is_first:
                 game.process()
             field.update()
             is_first = False
 
-            if isinstance(field.rival_obj[0], AI) and game.turn == Cell.BLUE:
-                field, game = Start.make_move_in_another_process(
-                    field, game, field.rival_obj[0])
-            elif isinstance(field.rival_obj[1], AI) and game.turn == Cell.RED:
-                field, game = Start.make_move_in_another_process(
-                    field, game, field.rival_obj[1])
-
-            elif rival == (Rival.ONLINE, Rival.ONLINE):
-                if game.turn == field.saving_for_online["color"]:
-                    field.x, field.y = -1, -1
-                    coordinats = field.get_coordinats()
-                    while (not field.exit and
-                           (field.name_win is None or
-                            field.name_win['size'] is None) and
-                           not field.results):
-                        (field, game, made_step,
-                         coordinats) = Start.make_user_move_in_another_process(
-                            field, game, coordinats)
-                        if made_step:
-                            break
-                        if (self.socket.sock is not None and
-                                self.socket.accept() is not None):
-                            self.socket.send_color_and_size(
-                                field.saving_for_online['color'],
-                                field.saving_for_online['size'])
-                            QtWidgets.QMessageBox.information(
-                                field, 'Start', 'Enemy connected')
-                            print("START")
-                        if self.socket.conn is not None:
-                            data = self.socket.recv()
-                            self.check_finish_game_of_enemy(field, game, data)
-                    if (field.name_win is None or
-                            field.name_win['size'] is None):
-                        if self.socket.conn is None:
-                            self.start_connection(field)
-                        if (not field.exit and
-                                (field.name_win is None or
-                                 field.name_win['size'] is None) and
-                                not field.results):
-                            self.socket.send(coordinats)
-                    elif self.socket.conn is not None:
-                        with contextlib.suppress(OSError):
-                            self.socket.send('CHANGING_RIVAL')
-                else:
-                    if self.socket.conn is None:
-                        self.start_connection(field)
-                    coordinats = None
-                    while (coordinats is None and
-                           not field.exit and
-                           (field.name_win is None or
-                            field.name_win['size'] is None) and
-                           not field.results):
-                        coordinats = self.socket.recv()
-                        self.check_finish_game_of_enemy(
-                            field, game, coordinats)
-                        QtCore.QCoreApplication.processEvents()
-                    if (not field.exit and
-                            (field.name_win is None or
-                             field.name_win['size'] is None) and
-                            not field.results):
-                        field, game = (
-                            Start.make_right_random_move_in_another_process(
-                                field, game, coordinats))
-                    elif (not (field.name_win is None or
-                          field.name_win['size'] is None) and
-                          self.socket.conn is not None):
-                        with contextlib.suppress(OSError):
-                            self.socket.send('CHANGING_RIVAL')
+            if game.turn == Cell.BLUE:
+                current_player = field.rival_obj[0]
             else:
-                field.x, field.y = -1, -1
-                coordinats = field.get_coordinats()
-                made_step = False
-                while (not field.exit and not field.results and
-                        (field.name_win is None or
-                         field.name_win['size'] is None) and
-                        not made_step):
-                    (field, game, made_step,
-                     coordinats) = Start.make_user_move_in_another_process(
-                        field, game, coordinats)
+                current_player = field.rival_obj[1]
+            current_turn = game.turn
+
+            if isinstance(current_player, AI):
+                field, game, is_first = current_player.process_step(field, game, current_player, current_turn)
+            else:
+                field, game, is_first = current_player.process_step(field, game, is_first, self)
 
             if field.results or not game.is_empty_cell_on_field():
                 if (rival == (Rival.ONLINE, Rival.ONLINE) and
@@ -122,7 +54,6 @@ class Start:
                         self.socket.conn.close()
                 field.winner = game.get_winner()
                 field.update()
-
                 if ((isinstance(field.rival_obj[0], AI) or isinstance(field.rival_obj[1], AI)) and
                         Rival.HUMAN in rival and
                         field.high_scores is not None):
@@ -214,43 +145,6 @@ class Start:
             while ((field.name_win is None or field.name_win['size'] is None)
                     and not field.exit):
                 QtCore.QCoreApplication.processEvents()
-
-    @staticmethod
-    def make_user_move_in_another_process(field, game, coordinats):
-        made_step = False
-        q = mp.Queue()
-        p = mp.Process(target=game.make_step, args=(*coordinats, q))
-        p.start()
-        while q.empty():
-            QtCore.QCoreApplication.processEvents()
-        element = q.get()
-        if not element:
-            coordinats = field.get_coordinats()
-        else:
-            field.game = game = element
-            made_step = True
-        return (field, game,
-                made_step, coordinats)
-
-    @staticmethod
-    def make_move_in_another_process(field, game, ai):
-        q = mp.Queue()
-        p = mp.Process(target=ai.make_step, args=(game, q))
-        p.start()
-        while q.empty():
-            QtCore.QCoreApplication.processEvents()
-        element = q.get()
-        if element:
-            field.game = game = element 
-        else:
-            q = mp.Queue()
-            p = mp.Process(target=AIrandom().make_step, args=(game, q))
-            p.start()
-            while q.empty():
-                QtCore.QCoreApplication.processEvents()
-            field.game = game = q.get()
-        return field, game
-
 
     @staticmethod
     def change_rival_field_game(game, field):

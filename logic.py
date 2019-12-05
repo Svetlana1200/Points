@@ -54,7 +54,6 @@ class Game:
         if not self.in_border(x, y):
             if queue is not None:
                 queue.put(False)
-                #print(queue)
             return False
         if self.field[x][y] == Cell.EMPTY:
             self.field[x][y] = self.turn
@@ -110,11 +109,9 @@ class Game:
                 print(self.lines[-1][0], self.lines[-1][1], self.lines[-1][3])
             if queue is not None:
                 queue.put(self)
-                #print(queue)
             return True
         if queue is not None:
             queue.put(False)
-            #print(queue)
         return False
 
     def check_neighboring_points(self, statr_x,
@@ -396,164 +393,6 @@ class Game:
         else:
             return (self.neigbour_blue, self.step_enemy_blue,
                     self.neigbour_red, self.step_enemy_red)
-
-    def undo(self, enemy):
-        if self.undo_count > Game.UNDO_COUNT * 2:
-            raise IndexError
-        (x, y), curent_point, count_poins = self.cancellation.pop()
-        print("UNDO ", x, y)
-        if enemy == Rival.AInormal and len(self.cancellation) > 0:
-            ((next_x, next_y),
-             _next_curent_point,
-             _next_count_poins) = self.cancellation[-1]
-        else:
-            next_x, next_y = None, None
-        self.possible_steps.append((x, y))
-        find_line = False
-        color_undo_point = self.field[x][y]
-        self.field[x][y] = Cell.EMPTY
-        (neigbour, step_enemy,
-         neigbour_another,
-         step_enemy_another) = self._get_neigbours_steps_enemys(
-             color_undo_point)
-
-        for line in self.lines:
-            if (x, y) in line[0]:
-                find_line = True
-                self.repetitions.append(
-                    ((x, y), color_undo_point, line,
-                     curent_point, count_poins))
-                self.lines.remove(line)
-                if enemy == Rival.AIeasy or enemy == Rival.AInormal:
-                    neigbour.add(curent_point)
-                    step_enemy.insert(0, curent_point)
-                    if color_undo_point == Cell.RED:
-                        self.curent_point_red = curent_point
-                    else:
-                        self.curent_point_blue = curent_point
-                for ((black_x, black_y), color_early) in line[2]:  # черные т.
-                    self.field[black_x][black_y] = color_early
-                if line[1] == Cell.BLUE:  # цвет
-                    self.score_blue -= line[3]  # площадь
-                else:
-                    self.score_red -= line[3]
-                break
-        if not find_line:
-            self.repetitions.append(
-                ((x, y), color_undo_point, (), curent_point, count_poins))
-        try:
-            if color_undo_point == Cell.RED:
-                self.last_red = self.cancellation[-2][0]
-            else:
-                self.last_blue = self.cancellation[-2][0]
-        except IndexError:
-            if color_undo_point == Cell.RED:
-                self.last_red = None
-            else:
-                self.last_blue = None
-        self.undo_count += 1
-        if enemy == Rival.AIrandom:
-            return
-
-        if curent_point is not None:
-            if (enemy == Rival.AIeasy or
-                    enemy == Rival.AInormal and
-                    curent_point == (next_x, next_y)):
-                if color_undo_point == Cell.RED:
-                    self.curent_point_red = None
-                    self.neigbour_red = set()
-                else:
-                    self.curent_point_blue = None
-                    self.neigbour_blue = set()
-            elif enemy == Rival.AInormal:
-                if curent_point not in step_enemy:
-                    step_enemy.append(curent_point)
-                if color_undo_point == Cell.RED:
-                    self.curent_point_red = curent_point
-                    self.neigbour_red = set()
-                else:
-                    self.curent_point_blue = curent_point
-                    self.neigbour_blue = set()
-            if enemy == Rival.AInormal:
-                if color_undo_point == Cell.RED:
-                    self.count_red -= 1
-                    if self.count_red <= 0:
-                        self.count_red = count_poins - 1
-                else:
-                    self.count_blue -= 1
-                    if self.count_blue <= 0:
-                        self.count_blue = count_poins - 1
-        with contextlib.suppress(KeyError):
-            neigbour_another.remove((x, y))
-        with contextlib.suppress(ValueError):
-            step_enemy_another.remove((x, y))
-        print("BLUE: ", self.count_blue, ", RED: ", self.count_red)
-
-    def redo(self, enemy):
-        ((x, y), color_undo_point,
-         line, curent_point, count_poins) = self.repetitions.pop()
-        print("REDO ", x, y)
-        self.cancellation.append(((x, y), curent_point, count_poins))
-        if enemy == Rival.AInormal and len(self.repetitions) > 0:
-            ((next_x, next_y), _next_color_undo_point,
-             _next_line, _next_curent_point,
-             _next_count_poins) = self.repetitions[-1]
-        else:
-            next_x, next_y = None, None
-        self.possible_steps.remove((x, y))
-        self.field[x][y] = color_undo_point
-        (neigbour, step_enemy,
-         neigbour_another,
-         step_enemy_another) = self._get_neigbours_steps_enemys(
-             color_undo_point)
-
-        if len(line) > 0:
-            self.lines.append(line)
-            if enemy == Rival.AIeasy or enemy == Rival.AInormal:
-                with contextlib.suppress(KeyError):
-                    neigbour.remove(curent_point)
-                with contextlib.suppress(ValueError):
-                    step_enemy.remove(curent_point)
-            if color_undo_point == Cell.BLUE:  # цвет
-                self.score_blue += line[3]  # площадь
-                self.curent_point_blue = None
-                self.neigbour_blue = set()
-            else:
-                self.score_red += line[3]
-                self.curent_point_red = None
-                self.neigbour_red = set()
-            for ((black_x, black_y), _color) in line[2]:  # черные точки
-                self.field[black_x][black_y] = Cell.BLACK
-        if color_undo_point == Cell.RED:
-            self.last_red = (x, y)
-        else:
-            self.last_blue = (x, y)
-        self.undo_count -= 1
-        if enemy == Rival.AIrandom:
-            return
-
-        if curent_point is not None:
-            if (enemy == Rival.AIeasy or
-                    enemy == Rival.AInormal and
-                    curent_point == (next_x, next_y)):
-                if color_undo_point == Cell.RED:
-                    self.curent_point_red = curent_point
-                else:
-                    self.curent_point_blue = curent_point
-            if enemy == Rival.AInormal:
-                if color_undo_point == Cell.RED:
-                    self.count_red += 1
-                    if self.count_red > count_poins:
-                        self.count_red = 1
-                else:
-                    self.count_blue += 1
-                    if self.count_blue > count_poins:
-                        self.count_blue = 1
-        with contextlib.suppress(KeyError):
-            neigbour_another.add((x, y))
-        with contextlib.suppress(ValueError):
-            step_enemy_another.append((x, y))
-        print("BLUE: ", self.count_blue, ", RED: ", self.count_red)
 
 
 class Geometry:
